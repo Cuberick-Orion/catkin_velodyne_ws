@@ -11,6 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
   genmsg
   roscpp
   rospy
+  rosbag
   std_msgs
 )
 
