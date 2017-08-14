@@ -1,0 +1,8 @@
+prefix=/home/cuberick/catkin_velodyne_ws/install
+
+Name: velodyne_visual
+Description: Description of velodyne_visual
+Version: 0.0.0
+Cflags: 
+Libs: -L/home/cuberick/catkin_velodyne_ws/install/lib 
+Requires: 

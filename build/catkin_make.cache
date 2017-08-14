@@ -1,0 +1,2 @@
+velodyne_visual
+-DCATKIN_DEVEL_PREFIX=/home/cuberick/catkin_velodyne_ws/devel -DCMAKE_INSTALL_PREFIX=/home/cuberick/catkin_velodyne_ws/install -G Unix Makefiles
