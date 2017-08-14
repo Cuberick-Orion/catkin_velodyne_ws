@@ -7,5 +7,4 @@
 # new environment variables
 
 # modified environment variables
-export PKG_CONFIG_PATH="/home/cuberick/catkin_velodyne_ws/devel/lib/pkgconfig:$PKG_CONFIG_PATH"
 export PWD="/home/cuberick/catkin_velodyne_ws/build"
