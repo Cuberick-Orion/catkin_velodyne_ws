@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(velodyne_visual)
 
-## Compile as C++11, supported in ROS Kinetic and newer
+## Compile as C++11, set https://raw.github.com/ros/rosupported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
 
 ## Find catkin macros and libraries
@@ -13,6 +13,9 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   rosbag
   std_msgs
+  tf
+  sensor_msgs
+  roslib
 )
 
 ## System dependencies are found with CMake's conventions
