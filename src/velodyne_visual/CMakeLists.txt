@@ -16,6 +16,7 @@ find_package(catkin REQUIRED COMPONENTS
   tf
   sensor_msgs
   roslib
+  tf2_sensor_msgs
 )
 
 ## System dependencies are found with CMake's conventions
@@ -123,6 +124,7 @@ catkin_package(
 include_directories(
 # include
   ${catkin_INCLUDE_DIRS}
+  # tf2_sensor_msgs/tf2_sensor_msgs.h
 )
 
 ## Declare a C++ library

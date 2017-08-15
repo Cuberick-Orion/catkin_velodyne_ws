@@ -158,6 +158,8 @@ set(CMAKE_MAKEFILE_DEPENDS
   "/opt/ros/kinetic/share/tf2_py/cmake/tf2_pyConfig.cmake"
   "/opt/ros/kinetic/share/tf2_ros/cmake/tf2_rosConfig-version.cmake"
   "/opt/ros/kinetic/share/tf2_ros/cmake/tf2_rosConfig.cmake"
+  "/opt/ros/kinetic/share/tf2_sensor_msgs/cmake/tf2_sensor_msgsConfig-version.cmake"
+  "/opt/ros/kinetic/share/tf2_sensor_msgs/cmake/tf2_sensor_msgsConfig.cmake"
   "/opt/ros/kinetic/share/topic_tools/cmake/topic_tools-msg-extras.cmake"
   "/opt/ros/kinetic/share/topic_tools/cmake/topic_toolsConfig-version.cmake"
   "/opt/ros/kinetic/share/topic_tools/cmake/topic_toolsConfig.cmake"
