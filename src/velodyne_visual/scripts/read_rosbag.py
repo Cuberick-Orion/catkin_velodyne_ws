@@ -184,7 +184,8 @@ def process():
 		scale = math.cos (oxts_first * math.pi / 180.00)
 		# print scale
 
-
+# init pose
+		# pose = 
 		# subprocess.call(['spd-say','start publishing'])
 
 		# print('generating processed data')
