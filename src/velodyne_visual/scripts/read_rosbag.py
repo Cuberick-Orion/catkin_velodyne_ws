@@ -19,7 +19,7 @@ def process():
 		
 		rospy.init_node('test_velodyne',anonymous=True)
 
-		bag = rosbag.Bag("/home/cuberick/raw_data/kitti_2011_09_26_drive_0001_synced.bag")
+		bag = rosbag.Bag("/home/cuberick/raw_data/kitti_2011_09_26_drive_0005_synced.bag")
 
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -249,7 +249,8 @@ def process():
 		frame_counts = 0
 		total_frames = 0
 		frames_left = 0
-
+		skipped_count = 0
+		rejected_count = 0
 		# for frame in range(0,interval,len(pose_T)):
 
 		
@@ -261,14 +262,14 @@ def process():
 		print
 
 		all_points = np.empty([1,3],dtype=float)
-		current_point_set = np.empty((999999,3,)) * np.NaN
+		current_point_set = np.empty((9999999,3,)) * np.NaN
 		vcount = 5
 
 		bag_count = -1
 		for topic, msg, t in bag.read_messages("/kitti/velo/pointcloud"):
 
 			# transformed_points = np.empty((1,3,))
-			transformed_points = np.empty((99999,3,)) * np.NaN
+			transformed_points = np.empty((9999999,3,)) * np.NaN
 
 
 			bag_count += 1
@@ -290,7 +291,6 @@ def process():
 
 			info_of_frame = "Processing the %d th scan, %d to go" % (frame_count,frames_left)
 			print info_of_frame
-			print
 			print "~~~~~~working hard     >.<      please wait! Neko~~~~~~~"
 			print
 
@@ -303,15 +303,16 @@ def process():
 			point_count_raw = 0
 			for point in raw_data:
 				current_point = [point[0], point[1], point[2]]
-				if point[0] > 4:
-					try:
-					# print point_count_raw
-					# print current_point
-						current_point_set[point_count_raw] = current_point
-						point_count_raw += 1
-					except:
-						print ".^.   skip recording this point"
-						continue
+				# if point[0] > 4:
+				try:
+				# print point_count_raw
+				# print current_point
+					current_point_set[point_count_raw] = current_point
+					point_count_raw += 1
+				except:
+					# print ".^.   skip recording this point"
+					skipped_count += 1
+					continue
 
 			current_point_set = np.delete(current_point_set, (0), axis=0)
 			current_point_set = current_point_set[~np.isnan(current_point_set).any(axis=1)]
@@ -362,10 +363,14 @@ def process():
 					if (point_c[0,2] > -6) and (point_c[0,2] < 6):
 						transformed_points[j] = point_c
 					else:
-						print " O_o   point rejected due to range limit"
+						rejected_count += 1
+						# print " O_o   point rejected due to range limit"
 				# except:
 					# print "except!!!"
 					# continue
+			print "Cumulated rejected and skipped points:"
+			print (rejected_count + skipped_count)
+			print
 
 			# transformed_points = np.delete(transformed_points, [3], axis=1)
 			transformed_points = transformed_points[~np.isnan(transformed_points).any(axis=1)]
@@ -398,7 +403,7 @@ def process():
 		# pose = 
 		# subprocess.call(['spd-say','start publishing'])
 
-		print('generating processed data')
+		
 		header = std_msgs.msg.Header()
 		header.stamp = rospy.Time.now()
 		header.frame_id = 'map'
@@ -408,13 +413,24 @@ def process():
                   PointField('z', 8, PointField.FLOAT32, 1),
                   PointField('i', 12, PointField.FLOAT32, 1)]
 
-		# print all_points
 
+
+		# print all_points
+		print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
+		print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
+		print('processed complete     ^.^       Here is the report')
+		print
 		# a = type(all_points)
 		b = np.shape(all_points)
 		# print a 
+		print ("Total points")
 		print b
-		
+		print ("Total skipped points:")
+		print skipped_count
+		print ("Total rejected points")
+		print rejected_count
+		print
+		print
 
 		all_points = all_points.tolist()
 
