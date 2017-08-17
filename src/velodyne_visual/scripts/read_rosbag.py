@@ -12,6 +12,7 @@ from tf2_sensor_msgs.tf2_sensor_msgs import do_transform_cloud
 import subprocess
 import tf
 import math
+from numpy.linalg import inv
 
 def process():
 	# pub = rospy.Publisher('velodyne_point_data', String, queue_size=10)
@@ -178,11 +179,103 @@ def process():
 #  everything completely read
 #  proceed into processing
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-		
+
+
+
+# ---->>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+# get pose (loadOxtsliteData and convertOxtsToPose)
+
+
+
 # compute scale from first lat value
 		oxts_first = OXTS_GPS_raw[0][0]
 		scale = math.cos (oxts_first * math.pi / 180.00)
 		# print scale
+
+# OXTS_GPS_raw [1] [2] [3] and OXTS_IMU_raw [1] [2] [3]
+		oxts = np.concatenate ((OXTS_GPS_raw, OXTS_IMU_raw), axis = 1)
+		# print oxts
+		lengh_of_oxts = np.shape(oxts)[0]
+		# print lengh_of_oxts
+
+		pose = [None] * lengh_of_oxts
+		Tr_0_inv = np.zeros(shape = (4,4))
+		isempty = np.zeros(shape = (4,4))
+		# a = oxts[0]
+		# print(a)
+
+		i = 0
+		for i in range(lengh_of_oxts-1):
+			if oxts[i] == []:
+				pose[i] = np.empty((3,3,)) * np.nan
+				continue
+
+			t = np.empty((3,1,))
+			current_oxts_1 = oxts[i][0]
+			current_oxts_2 = oxts[i][1]
+
+			er = 6378137
+			current_t_11 = scale * current_oxts_2 * math.pi * er / 180
+			current_t_12 = scale * er * math.log(math.tan( (90+ current_oxts_1) * math.pi / 360 ))
+			current_t_13 = oxts[i][2]
+			t = [[current_t_11], [current_t_12], [current_t_13]]
+
+			# print t
+			# print
+			# print i
+			# print(oxts[i])
+			rx = oxts[i][3]
+			ry = oxts[i][4]
+			rz = oxts[i][5]
+
+			# print (rx)
+			# print (ry)
+			# print (rz)
+
+			Rx = np.matrix([[1, 0, 0], [0, math.cos(rx), -math.sin(rx)], [0, math.sin(rx), math.cos(rx)]])
+			Ry = np.matrix([[math.cos(ry), 0, math.sin(ry)], [0, 1, 0], [-math.sin(ry), 0, math.cos(ry)]])
+			Rz = np.matrix([[math.cos(rz), -math.sin(rz), 0], [math.sin(rz), math.cos(rz), 0], [0, 0, 1]])
+			R = np.empty((3,3,))
+			R = np.dot(np.dot(Rz,Ry),Rx)
+
+			# print (Rx)
+			# print (Ry)
+			# print (Rz)
+
+			# print R
+			# print
+
+			current_matrix = np.zeros(shape = (4,4))
+			first_three_row = np.concatenate ((R,t), axis =1)
+			current_matrix = np.vstack([first_three_row, [0,0,0,1]])
+			# print first_three_row
+		
+			if np.array_equal(Tr_0_inv,isempty):
+				# print "enter if statement"
+				# print i
+
+				Tr_0_inv = inv(current_matrix)
+
+			# if i == 0:
+			# 	print Tr_0_inv
+			# 	print four_rows
+			current_pose = np.empty((4,4,))
+			current_pose = Tr_0_inv.dot(current_matrix)
+			pose[i] = current_pose
+
+
+			# print i
+			# print oxts[i]
+			# print pose[i]
+
+			# raw_input("press ehnter to continue")
+# ---->>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+
+# ---->>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+# start processing as of pose_T
+
+
 
 # init pose
 		# pose = 
