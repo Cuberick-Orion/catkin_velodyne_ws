@@ -16,17 +16,20 @@ from numpy.linalg import inv
 
 def process():
 	# pub = rospy.Publisher('velodyne_point_data', String, queue_size=10)
-		
+	# while not rospy.is_shutdown():
 		rospy.init_node('test_velodyne',anonymous=True)
 
-		bag = rosbag.Bag("/home/cuberick/raw_data/kitti_2011_09_26_drive_0005_synced.bag")
+		bag = rosbag.Bag("/home/cuberick/raw_data/kitti_2011_09_26_drive_0001_synced.bag")
 
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # Read IMU-to-Velodyne Transformation Matrix
 		tcount = 1
+		print ("Bag loaded, starting program")
+		print ("--by Cuberick.YoRHa")
+		print
+		print
 		print(">>>reading tf info")
-		print ("--by Cuberick. sora >.<")
 		print
 		for topic, msg, t in bag.read_messages("/tf_static"):
 			# if tcount < 1:
@@ -289,9 +292,9 @@ def process():
 			total_frames = math.ceil(total_frames)
 			frames_left = total_frames - frame_count + 1
 
-			info_of_frame = "Processing the %d th scan, %d to go" % (frame_count,frames_left)
+			info_of_frame = "    Processing the %d th scan, %d to go" % (frame_count,frames_left)
 			print info_of_frame
-			print "~~~~~~working hard     >.<      please wait! Neko~~~~~~~"
+			print "    ~~~~~~working hard     >.<      please wait!~~~~~~~"
 			print
 
 			# print vcount
@@ -418,7 +421,7 @@ def process():
 		# print all_points
 		print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
 		print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
-		print('processed complete     ^.^       Here is the report')
+		print('processing completed     ^.^       Here is the report')
 		print
 		# a = type(all_points)
 		b = np.shape(all_points)
@@ -444,9 +447,9 @@ def process():
 
 
 		pcl_pub = rospy.Publisher("/velodyne_pub", PointCloud2, queue_size = 10)
-		rospy.loginfo("info...")
+		rospy.loginfo("Publisher started: /velodyne_pub...")
 		rospy.sleep(1.)
-		rospy.loginfo("publishing sample pointcloud.. !")
+		rospy.loginfo("Publishing sample pointcloud.. !")
 		pcl_pub.publish(processed_data)
 
 

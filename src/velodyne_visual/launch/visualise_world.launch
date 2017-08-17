@@ -1,0 +1,6 @@
+<launch>
+  <node pkg="rviz" type="rviz" name="rviz_visuliser" />
+  <node pkg="velodyne_visual" type="read_rosbag.py" name="visualise_world"  output="screen">
+   
+  </node>
+</launch>
