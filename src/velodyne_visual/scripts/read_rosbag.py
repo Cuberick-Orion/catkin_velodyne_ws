@@ -239,9 +239,10 @@ def process():
 			pose_T[i] = np.empty((4,4,))
 			pose_T[i] = transfer_pose
 
-		transformed_points = np.empty((1,3,))
 
-		interval = 15
+		
+
+		interval = 6
 
 		frame = 0
 		frame_count = 0
@@ -260,13 +261,16 @@ def process():
 		print
 
 		all_points = np.empty([1,3],dtype=float)
-		current_point_set = np.empty([1,3],dtype=float)
+		current_point_set = np.empty((999999,3,)) * np.NaN
 		vcount = 5
 
 		bag_count = -1
 		for topic, msg, t in bag.read_messages("/kitti/velo/pointcloud"):
 
-			
+			# transformed_points = np.empty((1,3,))
+			transformed_points = np.empty((99999,3,)) * np.NaN
+
+
 			bag_count += 1
 			if (bag_count) % interval != 0:
 				continue
@@ -296,13 +300,23 @@ def process():
 ## msg is of type PointCloud2
 			raw_data = pc2.read_points(msg)
 	
-
+			point_count_raw = 0
 			for point in raw_data:
 				current_point = [point[0], point[1], point[2]]
 				if point[0] > 4:
-					current_point_set = np.vstack([current_point_set , current_point])
+					try:
+					# print point_count_raw
+					# print current_point
+						current_point_set[point_count_raw] = current_point
+						point_count_raw += 1
+					except:
+						print ".^.   skip recording this point"
+						continue
 
 			current_point_set = np.delete(current_point_set, (0), axis=0)
+			current_point_set = current_point_set[~np.isnan(current_point_set).any(axis=1)]
+			
+
 			velo = current_point_set
 
 			if np.shape(velo)[0] < 2:
@@ -313,7 +327,7 @@ def process():
 			for j in range(np.shape(velo)[0]):
 				# try:/
 					point_count += 1
-					if (point_count + 1 ) % 10 != 0:
+					if (point_count + 1 ) % 4 != 0:
 						continue
 
 					pose_a = pose_T[bag_count]
@@ -343,15 +357,18 @@ def process():
 					# a = type(point_c)
 					# print a
 					# print point_c
+					# print transformed_points[j]
 					# raw_input("press ehnter to continue")
 					if (point_c[0,2] > -6) and (point_c[0,2] < 6):
-						transformed_points = np.vstack([transformed_points , point_c])
+						transformed_points[j] = point_c
+					else:
+						print " O_o   point rejected due to range limit"
 				# except:
 					# print "except!!!"
 					# continue
 
 			# transformed_points = np.delete(transformed_points, [3], axis=1)
-			
+			transformed_points = transformed_points[~np.isnan(transformed_points).any(axis=1)]
 			all_points = np.vstack([all_points, transformed_points])
 			all_points = np.delete(all_points, (0), axis=0)
 
