@@ -26,6 +26,7 @@ def process():
 # Read IMU-to-Velodyne Transformation Matrix
 		tcount = 1
 		print(">>>reading tf info")
+		print ("--by Cuberick. sora >.<")
 		print
 		for topic, msg, t in bag.read_messages("/tf_static"):
 			# if tcount < 1:
@@ -132,53 +133,7 @@ def process():
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
-# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-# Read velodyne info
-		print (">>>Read Velodyne point data")
-		print
 
-		all_points = np.empty([1,3],dtype=float)
-		vcount = 1
-		print("=========start processing, count==========")
-		print
-
-		for topic, msg, t in bag.read_messages("/kitti/velo/pointcloud"):
-
-			if vcount < 1:
-				break
-			vcount -= 1
-
-			
-			print vcount
-			print
-
-			# print vcount
-
-			data_length = len(msg.data)
-## msg is of type PointCloud2
-			raw_data = pc2.read_points(msg)
-	
-
-			for point in raw_data:
-				current_point = [point[0], point[1], point[2]]
-				if point[0] > 4:
-					all_points = np.vstack([all_points , current_point])
-			# print(all_points)
-			# a = all_points.shape
-			# print(a)
-
-
-		print ("   Velodyne point data obtained")
-		print
-
-		all_points = np.delete(all_points, (0), axis=0)
-		# print all_points
-		bag.close()
-
-
-#  everything completely read
-#  proceed into processing
-# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 
 
@@ -271,9 +226,154 @@ def process():
 			# raw_input("press ehnter to continue")
 # ---->>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
+		pose_T = [None] * lengh_of_oxts
+
+		for i in range(lengh_of_oxts-1):
+			transfer_pose = np.empty((4,4,))
+
+			# print (T_imu_to_velo_homo)
+			# print
+			# print(pose[i])
+			transfer_pose = np.dot(T_imu_to_velo_homo, pose[i])
+
+			pose_T[i] = np.empty((4,4,))
+			pose_T[i] = transfer_pose
+
+		transformed_points = np.empty((1,3,))
+
+		interval = 15
+
+		frame = 0
+		frame_count = 0
+		frame_counts = 0
+		total_frames = 0
+		frames_left = 0
+
+		# for frame in range(0,interval,len(pose_T)):
+
+		
+
+
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+# Read velodyne info
+		print (">>>Read Velodyne point data")
+		print
+
+		all_points = np.empty([1,3],dtype=float)
+		current_point_set = np.empty([1,3],dtype=float)
+		vcount = 5
+
+		bag_count = -1
+		for topic, msg, t in bag.read_messages("/kitti/velo/pointcloud"):
+
+			
+			bag_count += 1
+			if (bag_count) % interval != 0:
+				continue
+
+			# if vcount < 1:
+			# 	break
+			# vcount -= 1
+
+			# print("counting cycles")
+			
+			# print vcount
+
+			frame_count += 1
+			total_frames = len(pose_T) / interval
+			total_frames = math.ceil(total_frames)
+			frames_left = total_frames - frame_count + 1
+
+			info_of_frame = "Processing the %d th scan, %d to go" % (frame_count,frames_left)
+			print info_of_frame
+			print
+			print "~~~~~~working hard     >.<      please wait! Neko~~~~~~~"
+			print
+
+			# print vcount
+
+			data_length = len(msg.data)
+## msg is of type PointCloud2
+			raw_data = pc2.read_points(msg)
+	
+
+			for point in raw_data:
+				current_point = [point[0], point[1], point[2]]
+				if point[0] > 4:
+					current_point_set = np.vstack([current_point_set , current_point])
+
+			current_point_set = np.delete(current_point_set, (0), axis=0)
+			velo = current_point_set
+
+			if np.shape(velo)[0] < 2:
+				continue
+
+			j = 0
+			point_count = -1
+			for j in range(np.shape(velo)[0]):
+				# try:/
+					point_count += 1
+					if (point_count + 1 ) % 10 != 0:
+						continue
+
+					pose_a = pose_T[bag_count]
+
+					# print pose_a
+					point = velo[j]
+					# print point
+					a = type(point)
+					# print a
+					# print point
+					point_a = point[np.newaxis, :].T
+					# print point_a
+					point_b = np.vstack([point_a, [1]])
+					
+					# print point_b
+					# print j
+					# print (pose_a)
+					# print (point_b)
+					# print
+
+					point_c = np.dot(pose_a, point_b)
+					point_c = point_c[np.newaxis, :].T
+					# print point_c
+
+					point_c = np.delete(point_c, [3], axis=1)
+					# print point_c
+					# a = type(point_c)
+					# print a
+					# print point_c
+					# raw_input("press ehnter to continue")
+					if (point_c[0,2] > -6) and (point_c[0,2] < 6):
+						transformed_points = np.vstack([transformed_points , point_c])
+				# except:
+					# print "except!!!"
+					# continue
+
+			# transformed_points = np.delete(transformed_points, [3], axis=1)
+			
+			all_points = np.vstack([all_points, transformed_points])
+			all_points = np.delete(all_points, (0), axis=0)
+
+			# print(all_points)
+			# a = all_points.shape
+			# print(a)
+
+
+
+
+
+		print ("   Velodyne point data processing finished")
+		print
+
+		all_points = np.delete(all_points, (0), axis=0)
+		# print all_points
+		
+
+
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 # ---->>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-# start processing as of pose_T
 
 
 
@@ -281,28 +381,44 @@ def process():
 		# pose = 
 		# subprocess.call(['spd-say','start publishing'])
 
-		# print('generating processed data')
-		# header = std_msgs.msg.Header()
-		# header.stamp = rospy.Time.now()
-		# header.frame_id = 'map'
+		print('generating processed data')
+		header = std_msgs.msg.Header()
+		header.stamp = rospy.Time.now()
+		header.frame_id = 'map'
 
-		# fields = [PointField('x', 0, PointField.FLOAT32, 1),
-  #                 PointField('y', 4, PointField.FLOAT32, 1),
-  #                 PointField('z', 8, PointField.FLOAT32, 1),
-  #                 PointField('i', 12, PointField.FLOAT32, 1)]
+		fields = [PointField('x', 0, PointField.FLOAT32, 1),
+                  PointField('y', 4, PointField.FLOAT32, 1),
+                  PointField('z', 8, PointField.FLOAT32, 1),
+                  PointField('i', 12, PointField.FLOAT32, 1)]
+
+		# print all_points
+
+		# a = type(all_points)
+		b = np.shape(all_points)
+		# print a 
+		print b
+		
+
+		all_points = all_points.tolist()
+
+		# print all_points
+
+		processed_data = pc2.create_cloud_xyz32(header, all_points)
+		# [[1, 1, 1]]
+		# a = [[1, 1, 1]]
+		# b = type(a)
+		# print b
 
 
-		# processed_data = pc2.create_cloud_xyz32(header, all_points)
-
-		# pcl_pub = rospy.Publisher("/velodyne_pub", PointCloud2, queue_size = 10)
-		# rospy.loginfo("info...")
-		# rospy.sleep(1.)
-		# rospy.loginfo("publishing sample pointcloud.. !")
-		# pcl_pub.publish(processed_data)
+		pcl_pub = rospy.Publisher("/velodyne_pub", PointCloud2, queue_size = 10)
+		rospy.loginfo("info...")
+		rospy.sleep(1.)
+		rospy.loginfo("publishing sample pointcloud.. !")
+		pcl_pub.publish(processed_data)
 
 
 		
-
+		bag.close()
 
 
 if __name__ == '__main__':
