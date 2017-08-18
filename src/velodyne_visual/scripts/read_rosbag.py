@@ -19,17 +19,20 @@ def process():
 	# while not rospy.is_shutdown():
 		rospy.init_node('test_velodyne',anonymous=True)
 
-		bag = rosbag.Bag("/home/cuberick/raw_data/kitti_2011_09_26_drive_0001_synced.bag")
+		bag = rosbag.Bag("/home/cuberick/raw_data/kitti_2011_09_26_drive_0005_synced.bag")
 
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # Read IMU-to-Velodyne Transformation Matrix
 		tcount = 1
+		print
+		print "=============================================="
+		print
 		print ("Bag loaded, starting program")
 		print ("--by Cuberick.YoRHa")
 		print
 		print
-		print(">>>reading tf info")
+		print(">>>Read tf info")
 		print
 		for topic, msg, t in bag.read_messages("/tf_static"):
 			# if tcount < 1:
@@ -265,14 +268,14 @@ def process():
 		print
 
 		all_points = np.empty([1,3],dtype=float)
-		current_point_set = np.empty((9999999,3,)) * np.NaN
+		current_point_set = np.empty((999999,3,)) * np.NaN
 		vcount = 5
 
 		bag_count = -1
 		for topic, msg, t in bag.read_messages("/kitti/velo/pointcloud"):
 
 			# transformed_points = np.empty((1,3,))
-			transformed_points = np.empty((9999999,3,)) * np.NaN
+			transformed_points = np.empty((999999,3,)) * np.NaN
 
 
 			bag_count += 1
