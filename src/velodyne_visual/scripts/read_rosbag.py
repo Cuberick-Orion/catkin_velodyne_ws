@@ -22,31 +22,36 @@ def process():
 	# while not rospy.is_shutdown():
 		rospy.init_node('test_velodyne',anonymous=True)
 
-		bag_name = "kitti_2011_09_26_drive_0005_synced"
+		bag_name = "kitti_2011_09_26_drive_0001_synced"
 
 		bag_dir = "/home/cuberick/raw_data/%s.bag" % (bag_name)
 
 		bag = rosbag.Bag(bag_dir)
 
+		interval = 6
+		density = 8
+
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # Read IMU-to-Velodyne Transformation Matrix
 		tcount = 1
 		print ("===============================================")
-		print ("              ---PROGRAM START---              ")
-		print
-		print ("          Welcome to SWORD ART ONLINE          ")
-		print ("              Powered by The SEED              ")
-		print
-		print ("             by Cuberick.YuukiAsuna            ")
+		print ("|             ---PROGRAM START---             |")
+		print ("|                                             |")
+		print ("|         Welcome to SWORD ART ONLINE         |")
+		print ("|             Powered by The SEED             |")
+		print ("|                                             |")
+		print ("|            by Cuberick.YuukiAsuna           |")
 		print ("===============================================")
 		print
 		print
 
 		sys.stdout.write("KITTI sequence: %s" % bag_name)
+		print
+		sys.stdout.write("Frame interval: %d, Point density: %d" %  (interval, density) )
 		# sys.stdout.flush()
 		print
 		print
-		print ("Bag loaded, starting program")
+		print ("Bag LOADED, NERvGear START")
 		print
 
 
@@ -272,7 +277,7 @@ def process():
 
 		
 
-		interval = 6
+		
 
 		frame = 0
 		frame_count = 0
@@ -360,7 +365,7 @@ def process():
 			for j in range(np.shape(velo)[0]):
 				# try:/
 					point_count += 1
-					if (point_count + 1 ) % 4 != 0:
+					if (point_count + 1 ) % density != 0:
 						continue
 
 					pose_a = pose_T[bag_count]
@@ -459,11 +464,11 @@ def process():
 		# a = type(all_points)
 		b = np.shape(all_points)
 		# print a 
-		sys.stdout.write("		Total points:")
+		sys.stdout.write("	Total points:")
 		print b[0]
-		sys.stdout.write("		Skipped points:")
+		sys.stdout.write("	Skipped points:")
 		print skipped_count
-		sys.stdout.write("		Rejected points:")
+		sys.stdout.write("	Rejected points:")
 		print rejected_count
 		print
 		# print
@@ -481,7 +486,7 @@ def process():
 
 
 		pcl_pub = rospy.Publisher("/velodyne_pub", PointCloud2, queue_size = 10)
-		rospy.loginfo("Publisher started at: /velodyne_pub...")
+		rospy.loginfo("Publisher started at: /velodyne_pub")
 		rospy.sleep(1.)
 		rospy.loginfo("Publishing...")
 		pcl_pub.publish(processed_data)
