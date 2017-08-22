@@ -13,27 +13,46 @@ import subprocess
 import tf
 import math
 from numpy.linalg import inv
+import sys
+import os
+
 
 def process():
 	# pub = rospy.Publisher('velodyne_point_data', String, queue_size=10)
 	# while not rospy.is_shutdown():
 		rospy.init_node('test_velodyne',anonymous=True)
 
-		bag = rosbag.Bag("/home/cuberick/raw_data/kitti_2011_09_26_drive_0005_synced.bag")
+		bag_name = "kitti_2011_09_26_drive_0005_synced"
 
+		bag_dir = "/home/cuberick/raw_data/%s.bag" % (bag_name)
+
+		bag = rosbag.Bag(bag_dir)
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # Read IMU-to-Velodyne Transformation Matrix
 		tcount = 1
+		print ("===============================================")
+		print ("              ---PROGRAM START---              ")
 		print
-		print "=============================================="
+		print ("          Welcome to SWORD ART ONLINE          ")
+		print ("              Powered by The SEED              ")
+		print
+		print ("             by Cuberick.YuukiAsuna            ")
+		print ("===============================================")
+		print
+		print
+
+		sys.stdout.write("KITTI sequence: %s" % bag_name)
+		# sys.stdout.flush()
+		print
 		print
 		print ("Bag loaded, starting program")
-		print ("--by Cuberick.YoRHa")
 		print
-		print
-		print(">>>Read tf info")
-		print
+
+
+		sys.stdout.write("\r>>>Read tf info")
+		sys.stdout.flush()
+		# print
 		for topic, msg, t in bag.read_messages("/tf_static"):
 			# if tcount < 1:
 			# 	break
@@ -80,8 +99,10 @@ def process():
 							[0, 0, 0, 1] ]
 
 			# print T_imu_to_velo_homo
-		print ("   T_imu_to_velo obtained")
-		print
+		sys.stdout.write("\r   T_imu_to_velo obtained")
+		sys.stdout.flush()
+		# print ("   T_imu_to_velo obtained")
+		# print
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 
@@ -89,8 +110,9 @@ def process():
 # Read OXTS data
 		OXTS_GPS_raw = np.empty([1,3],dtype=float)
 		gcount = 1
-		print (">>>Read OXTS GPS raw data")
-		print
+		sys.stdout.write("\r>>>Read OXTS GPS raw data")
+		sys.stdout.flush()
+		# print
 
 		for topic, msg, t in bag.read_messages("/kitti/oxts/gps/fix"):
 			# if gcount < 1:
@@ -101,12 +123,13 @@ def process():
 			OXTS_GPS_raw = np.vstack([OXTS_GPS_raw , current_GPS_data])
 
 		OXTS_GPS_raw = np.delete(OXTS_GPS_raw, (0), axis=0)	
-		print("   OSTX GPS raw data obtained")
-		print
+		sys.stdout.write("\r   OSTX GPS raw data obtained")
+		# print
 		# print(OXTS_GPS_raw)
 
-		print (">>>Read OXTS IMU data")
-		print
+		sys.stdout.write("\r>>>Read OXTS IMU data")
+		sys.stdout.flush()
+		# print
 
 		OXTS_IMU_raw = np.empty([1,3],dtype=float)
 		icount = 3
@@ -134,8 +157,9 @@ def process():
 			# print IMU_data
 		OXTS_IMU_raw = np.delete(OXTS_IMU_raw, (0), axis=0)
 		# print OXTS_IMU_raw
-		print ("   OXTS_IMU data obtained")
-		print
+		sys.stdout.write("\r   OXTS_IMU data obtained")
+		sys.stdout.flush()
+		# print
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
@@ -264,8 +288,9 @@ def process():
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # Read velodyne info
-		print (">>>Read Velodyne point data")
-		print
+		sys.stdout.write("\r>>>Read Velodyne point data")
+		sys.stdout.flush()
+		# print
 
 		all_points = np.empty([1,3],dtype=float)
 		current_point_set = np.empty((999999,3,)) * np.NaN
@@ -295,10 +320,11 @@ def process():
 			total_frames = math.ceil(total_frames)
 			frames_left = total_frames - frame_count + 1
 
-			info_of_frame = "    Processing the %d th scan, %d to go" % (frame_count,frames_left)
-			print info_of_frame
-			print "    ~~~~~~working hard     >.<      please wait!~~~~~~~"
-			print
+			info_of_frame = "Processing scan No.%d , %d remaining" % (frame_count,frames_left)
+			sys.stdout.write("\r%s" % info_of_frame)
+			sys.stdout.flush()
+			# sys.stdout.write("    ~~~~~~working hard     >.<      please wait!~~~~~~~")
+			# print
 
 			# print vcount
 
@@ -374,9 +400,9 @@ def process():
 				# except:
 					# print "except!!!"
 					# continue
-			print "Cumulated rejected and skipped points:"
-			print (rejected_count + skipped_count)
-			print
+			# print "Cumulated rejected and skipped points:"
+			# print (rejected_count + skipped_count)
+			# print
 
 			# transformed_points = np.delete(transformed_points, [3], axis=1)
 			transformed_points = transformed_points[~np.isnan(transformed_points).any(axis=1)]
@@ -391,8 +417,9 @@ def process():
 
 
 
-		print ("   Velodyne point data processing finished")
-		print
+		sys.stdout.write("\rVelodyne point data processing finished")
+		sys.stdout.flush()
+		# print
 
 		all_points = np.delete(all_points, (0), axis=0)
 		# print all_points
@@ -422,21 +449,25 @@ def process():
 
 
 		# print all_points
-		print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
-		print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
-		print('processing completed     ^.^       Here is the report')
+		# print
+		# print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
+		# prsint(">>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
+		sys.stdout.write("\rProcessing completed, generating system report")
 		print
+		# sys.stdout.flush()
+		# print
 		# a = type(all_points)
 		b = np.shape(all_points)
 		# print a 
-		print ("Total points")
-		print b
-		print ("Total skipped points:")
+		sys.stdout.write("		Total points:")
+		print b[0]
+		sys.stdout.write("		Skipped points:")
 		print skipped_count
-		print ("Total rejected points")
+		sys.stdout.write("		Rejected points:")
 		print rejected_count
 		print
-		print
+		# print
+		print ("Start visualising...")
 
 		all_points = all_points.tolist()
 
@@ -450,9 +481,9 @@ def process():
 
 
 		pcl_pub = rospy.Publisher("/velodyne_pub", PointCloud2, queue_size = 10)
-		rospy.loginfo("Publisher started: /velodyne_pub...")
+		rospy.loginfo("Publisher started at: /velodyne_pub...")
 		rospy.sleep(1.)
-		rospy.loginfo("Publishing sample pointcloud.. !")
+		rospy.loginfo("Publishing...")
 		pcl_pub.publish(processed_data)
 
 
@@ -461,6 +492,7 @@ def process():
 
 
 if __name__ == '__main__':
+	os.system('cls' if os.name == 'nt' else 'clear')
 	try:
 		process()
 	except rospy.ROSInterruptException:
