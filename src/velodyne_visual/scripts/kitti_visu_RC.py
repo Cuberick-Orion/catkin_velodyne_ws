@@ -28,9 +28,9 @@ def process():
 
 		bag = rosbag.Bag(bag_dir)
 
-		interval = 3
+		interval = 1
 		density = 4
-		duration = rospy.Duration(0.25,0)
+		duration = rospy.Duration(0.1,0)
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # Read IMU-to-Velodyne Transformation Matrix
@@ -490,51 +490,55 @@ def process():
 		rospy.loginfo("Publishing...")
 		print
 		print
+		print
 
-		raw_input("NERvGear ... waiting for instruction")
-		# sys.stdout.write("Start visualising...")
-		sys.stdout.flush()
+		bag.close()
 
-
-		k = 0
-		for k in range(total_msg_no):
-
-			sys.stdout.write("\rVisualising frame %d" %k)
+		while (1):
+			raw_input("\rNERvGear ... waiting for instruction")
+			# sys.stdout.write("Start visualising...")
 			sys.stdout.flush()
 
-			header = std_msgs.msg.Header()
-			header.stamp = rospy.Time.now()
-			header.frame_id = 'map'
 
-			fields = [PointField('x', 0, PointField.FLOAT32, 1),
-	                  PointField('y', 4, PointField.FLOAT32, 1),
-	                  PointField('z', 8, PointField.FLOAT32, 1),
-	                  PointField('i', 12, PointField.FLOAT32, 1)]
+			k = 0
+			for k in range(total_msg_no):
 
-			current_visual_set = all_points[k]
+				sys.stdout.write("\rVisualising frame %d" %k)
+				sys.stdout.flush()
 
-			current_visual_set = current_visual_set.tolist()
+				header = std_msgs.msg.Header()
+				header.stamp = rospy.Time.now()
+				header.frame_id = 'map'
 
-			# print all_points
+				fields = [PointField('x', 0, PointField.FLOAT32, 1),
+		                  PointField('y', 4, PointField.FLOAT32, 1),
+		                  PointField('z', 8, PointField.FLOAT32, 1),
+		                  PointField('i', 12, PointField.FLOAT32, 1)]
 
-			processed_data = pc2.create_cloud_xyz32(header, current_visual_set)
-			rospy.sleep(duration)
-			# [[1, 1, 1]]
-			# a = [[1, 1, 1]]
-			# b = type(a)
-			# print b
+				current_visual_set = all_points[k]
+
+				current_visual_set = current_visual_set.tolist()
+
+				# print all_points
+
+				processed_data = pc2.create_cloud_xyz32(header, current_visual_set)
+				rospy.sleep(duration)
+				# [[1, 1, 1]]
+				# a = [[1, 1, 1]]
+				# b = type(a)
+				# print b
 
 
-			
-			pcl_pub.publish(processed_data)
+				
+				pcl_pub.publish(processed_data)
 
-		sys.stdout.write("\rVisualisation complete")
-		sys.stdout.flush()
-		print
-		print
+			sys.stdout.write("\rVisualisation complete")
+			sys.stdout.flush()
+			# print
+			# print
 
 		
-		bag.close()
+		
 
 
 if __name__ == '__main__':
