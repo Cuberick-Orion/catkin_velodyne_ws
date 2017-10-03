@@ -24,7 +24,7 @@ def process():
 
 		bag_name = "kitti_2011_09_26_drive_0001_synced"
 
-		bag_dir = "/home/cuberick/raw_data/%s.bag" % (bag_name)
+		bag_dir = "/home/cuberick/raw_data/rosbag/%s.bag" % (bag_name)
 
 		bag = rosbag.Bag(bag_dir)
 
@@ -388,7 +388,6 @@ def process():
 
 					pose_a = pose_T[bag_count]
 
-					# print pose_a
 					point = velo[j]
 					# print point
 					a = type(point)
@@ -403,18 +402,21 @@ def process():
 					# print (pose_a)
 					# print (point_b)
 					# print
+					print pose_a
+					print point_b
 
 					point_c = np.dot(pose_a, point_b)
 					point_c = point_c[np.newaxis, :].T
 					# print point_c
 
 					point_c = np.delete(point_c, [3], axis=1)
-					# print point_c
+					print point_c
 					# a = type(point_c)
 					# print a
 					# print point_c
 					# print transformed_points[j]
 					# raw_input("press ehnter to continue")
+
 					if (point_c[0,2] > -6) and (point_c[0,2] < 6):
 						transformed_points[j] = point_c
 					else:

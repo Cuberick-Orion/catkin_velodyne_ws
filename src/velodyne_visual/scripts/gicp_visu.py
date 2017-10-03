@@ -22,15 +22,19 @@ def process():
 	# while not rospy.is_shutdown():
 		rospy.init_node('test_velodyne',anonymous=True)
 
+# bag_name should be the same for both rosbag and gicp_simplified_result
 		bag_name = "kitti_2011_09_26_drive_0001_synced"
 
 		bag_dir = "/home/cuberick/raw_data/rosbag/%s.bag" % (bag_name)
+		gicp_output_dir = "/home/cuberick/raw_data/gicp_simplified_output/%s.txt" % (bag_name)
 
 		bag = rosbag.Bag(bag_dir)
 
 		interval = 1
 		density = 50
-
+		duration = rospy.Duration(0.1,0)
+		number_of_frame = 105
+		lengh_of_oxts = number_of_frame
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # Read IMU-to-Velodyne Transformation Matrix
 		tcount = 1
@@ -40,6 +44,8 @@ def process():
 		print ("|         Welcome to SWORD ART ONLINE         |")
 		print ("|             Powered by The SEED             |")
 		print ("|                                             |")
+		print ("|                                             |")
+		print ("|                  Ver. GICP                  |")
 		print ("|            by Cuberick.YuukiAsuna           |")
 		print ("===============================================")
 		print
@@ -62,7 +68,6 @@ def process():
 			# if tcount < 1:
 			# 	break
 			# tcount -= 1
-
 			
 			# print count
 
@@ -173,93 +178,126 @@ def process():
 
 
 # ---->>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-# get pose (loadOxtsliteData and convertOxtsToPose)
-
-
-
-# compute scale from first lat value
-		oxts_first = OXTS_GPS_raw[0][0]
-		scale = math.cos (oxts_first * math.pi / 180.00)
-		# print scale
-
-# OXTS_GPS_raw [1] [2] [3] and OXTS_IMU_raw [1] [2] [3]
-		oxts = np.concatenate ((OXTS_GPS_raw, OXTS_IMU_raw), axis = 1)
-		# print oxts
-		lengh_of_oxts = np.shape(oxts)[0]
-		# print lengh_of_oxts
-
-		pose = [None] * lengh_of_oxts
-		Tr_0_inv = np.zeros(shape = (4,4))
-		isempty = np.zeros(shape = (4,4))
-		# a = oxts[0]
-		# print(a)
+# obtain gicp results
+		gicp_raw = np.loadtxt(gicp_output_dir)
+		gicp_row_length = np.shape(gicp_raw)[0]
+		pose = [None] * number_of_frame
+		pose[0] = np.matrix([[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]])
 
 		i = 0
-		for i in range(lengh_of_oxts-1):
-			if oxts[i] == []:
-				pose[i] = np.empty((3,3,)) * np.nan
-				continue
+		current_starting_row = 0
+		current_ending_row = 0
+		accumulate_tf = pose[0]
 
-			t = np.empty((3,1,))
-			current_oxts_1 = oxts[i][0]
-			current_oxts_2 = oxts[i][1]
+		for i in range(number_of_frame - 1):
+			
+			current_starting_row = i * 4 + 0
+			current_ending_row = i * 4 + 3
+			current_pose_row_0 = gicp_raw[current_starting_row , :]
+			current_pose_row_1 = gicp_raw[current_starting_row + 1 , :]
+			current_pose_row_2 = gicp_raw[current_starting_row + 2 , :]
+			current_pose_row_3 = gicp_raw[current_starting_row + 3 , :]
+			current_pose = np.zeros(shape = (4,4))
+			current = np.matrix([current_pose_row_0,current_pose_row_1,current_pose_row_2,current_pose_row_3])
+			accumulate_tf = current.dot(accumulate_tf)
+			# print current
+			# current_pose[0,:] = current_pose_row_0
+			# current_pose[1,:] = current_pose_row_1
+			# current_pose[2,:] = current_pose_row_2
+			# current_pose[3,:] = current_pose_row_3
+			# current_pose = 
+			pose[i+1] = accumulate_tf
+			# print current_starting_row
+		# print i
+# get pose (loadOxtsliteData and convertOxtsToPose)
 
-			er = 6378137
-			current_t_11 = scale * current_oxts_2 * math.pi * er / 180
-			current_t_12 = scale * er * math.log(math.tan( (90+ current_oxts_1) * math.pi / 360 ))
-			current_t_13 = oxts[i][2]
-			t = [[current_t_11], [current_t_12], [current_t_13]]
+		print pose
 
-			# print t
-			# print
-			# print i
-			# print(oxts[i])
-			rx = oxts[i][3]
-			ry = oxts[i][4]
-			rz = oxts[i][5]
+# compute scale from first lat value
+		# oxts_first = OXTS_GPS_raw[0][0]
+		# scale = math.cos (oxts_first * math.pi / 180.00)
+		# # print scale
 
-			# print (rx)
-			# print (ry)
-			# print (rz)
+# OXTS_GPS_raw [1] [2] [3] and OXTS_IMU_raw [1] [2] [3]
+		# oxts = np.concatenate ((OXTS_GPS_raw, OXTS_IMU_raw), axis = 1)
+		# # print oxts
+		# lengh_of_oxts = np.shape(oxts)[0]
+		# # print lengh_of_oxts
 
-			Rx = np.matrix([[1, 0, 0], [0, math.cos(rx), -math.sin(rx)], [0, math.sin(rx), math.cos(rx)]])
-			Ry = np.matrix([[math.cos(ry), 0, math.sin(ry)], [0, 1, 0], [-math.sin(ry), 0, math.cos(ry)]])
-			Rz = np.matrix([[math.cos(rz), -math.sin(rz), 0], [math.sin(rz), math.cos(rz), 0], [0, 0, 1]])
-			R = np.empty((3,3,))
-			R = np.dot(np.dot(Rz,Ry),Rx)
+		# pose = [None] * lengh_of_oxts
+		# Tr_0_inv = np.zeros(shape = (4,4))
+		# isempty = np.zeros(shape = (4,4))
+		# # a = oxts[0]
+		# # print(a)
 
-			# print (Rx)
-			# print (Ry)
-			# print (Rz)
+		# i = 0
+		# for i in range(lengh_of_oxts-1):
+		# 	if oxts[i] == []:
+		# 		pose[i] = np.empty((3,3,)) * np.nan
+		# 		continue
 
-			# print R
-			# print
+		# 	t = np.empty((3,1,))
+		# 	current_oxts_1 = oxts[i][0]
+		# 	current_oxts_2 = oxts[i][1]
 
-			current_matrix = np.zeros(shape = (4,4))
-			first_three_row = np.concatenate ((R,t), axis =1)
-			current_matrix = np.vstack([first_three_row, [0,0,0,1]])
-			# print first_three_row
+		# 	er = 6378137
+		# 	current_t_11 = scale * current_oxts_2 * math.pi * er / 180
+		# 	current_t_12 = scale * er * math.log(math.tan( (90+ current_oxts_1) * math.pi / 360 ))
+		# 	current_t_13 = oxts[i][2]
+		# 	t = [[0],[0],[0]]
+		# 	# t = [[current_t_11], [current_t_12], [current_t_13]]
+
+		# 	# print t
+		# 	# print
+		# 	# print i
+		# 	# print(oxts[i])
+		# 	rx = oxts[i][3]
+		# 	ry = oxts[i][4]
+		# 	rz = oxts[i][5]
+
+		# 	# print (rx)
+		# 	# print (ry)
+		# 	# print (rz)
+
+		# 	Rx = np.matrix([[1, 0, 0], [0, math.cos(rx), -math.sin(rx)], [0, math.sin(rx), math.cos(rx)]])
+		# 	Ry = np.matrix([[math.cos(ry), 0, math.sin(ry)], [0, 1, 0], [-math.sin(ry), 0, math.cos(ry)]])
+		# 	Rz = np.matrix([[math.cos(rz), -math.sin(rz), 0], [math.sin(rz), math.cos(rz), 0], [0, 0, 1]])
+		# 	R = np.empty((3,3,))
+		# 	R = np.dot(np.dot(Rz,Ry),Rx)
+
+		# 	# print (Rx)
+		# 	# print (Ry)
+		# 	# print (Rz)
+
+		# 	# print R
+		# 	# print
+
+		# 	current_matrix = np.zeros(shape = (4,4))
+		# 	first_three_row = np.concatenate ((R,t), axis =1)
+		# 	current_matrix = np.vstack([first_three_row, [0,0,0,1]])
+		# 	# print first_three_row
 		
-			if np.array_equal(Tr_0_inv,isempty):
-				# print "enter if statement"
-				# print i
+		# 	if np.array_equal(Tr_0_inv,isempty):
+		# 		# print "enter if statement"
+		# 		# print i
 
-				Tr_0_inv = inv(current_matrix)
+		# 		Tr_0_inv = inv(current_matrix)
 
-			# if i == 0:
-			# 	print Tr_0_inv
-			# 	print four_rows
-			current_pose = np.empty((4,4,))
-			current_pose = Tr_0_inv.dot(current_matrix)
-			pose[i] = current_pose
+		# 	# if i == 0:
+		# 	# 	print Tr_0_inv
+		# 	# 	print four_rows
+		# 	current_pose = np.empty((4,4,))
+		# 	current_pose = Tr_0_inv.dot(current_matrix)
+		# 	pose[i] = current_pose
 
 
-			# print i
-			# print oxts[i]
-			# print pose[i]
+		# 	# print i
+		# 	# print oxts[i]
+		# 	# print pose[i]
 
-			# raw_input("press ehnter to continue")
+		# 	# raw_input("press ehnter to continue")
 # ---->>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+# include Tr matrix
 
 		pose_T = [None] * lengh_of_oxts
 
@@ -287,10 +325,8 @@ def process():
 		skipped_count = 0
 		rejected_count = 0
 		# for frame in range(0,interval,len(pose_T)):
-		# print pose
+
 		
-
-
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # Read velodyne info
 		sys.stdout.write("\r>>>Read Velodyne point data")
@@ -363,48 +399,35 @@ def process():
 			j = 0
 			point_count = -1
 			for j in range(np.shape(velo)[0]):
-				# try:/
+				try:
 					point_count += 1
 					if (point_count + 1 ) % density != 0:
 						continue
 
 					pose_a = pose_T[bag_count]
 
-					# print pose_a
+
 					point = velo[j]
-					# print point
 					a = type(point)
-					# print a
-					# print point
 					point_a = point[np.newaxis, :].T
-					# print point_a
 					point_b = np.vstack([point_a, [1]])
-					
-					# print point_b
-					# print j
-					# print (pose_a)
-					# print (point_b)
-					# print
 
 					point_c = np.dot(pose_a, point_b)
 					point_c = point_c[np.newaxis, :].T
-					# print point_c
+
 
 					point_c = np.delete(point_c, [3], axis=1)
-					# print point_c
-					# a = type(point_c)
-					# print a
-					# print point_c
-					# print transformed_points[j]
+
+
 					# raw_input("press ehnter to continue")
 					if (point_c[0,2] > -6) and (point_c[0,2] < 6):
 						transformed_points[j] = point_c
 					else:
 						rejected_count += 1
 						# print " O_o   point rejected due to range limit"
-				# except:
+				except:
 					# print "except!!!"
-					# continue
+					continue
 			# print "Cumulated rejected and skipped points:"
 			# print (rejected_count + skipped_count)
 			# print
