@@ -24,7 +24,6 @@ def process():
 
 # bag_name should be the same for both rosbag and gicp_simplified_result
 		bag_name = "kitti_2011_09_26_drive_0005_synced"
-		number_of_frame = 152
 
 		bag_dir = "/home/cuberick/raw_data/rosbag/%s.bag" % (bag_name)
 		gicp_output_dir = "/home/cuberick/raw_data/gicp_simplified_output/%s.txt" % (bag_name)
@@ -34,8 +33,8 @@ def process():
 		interval = 1
 		density = 50
 		duration = rospy.Duration(0.1,0)
-		
-		lengh_of_oxts = number_of_frame
+		number_of_frame = 152
+		# lengh_of_oxts = number_of_frame
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # Read IMU-to-Velodyne Transformation Matrix
 		tcount = 1
@@ -44,7 +43,7 @@ def process():
 		print ("|                                             |")
 		print ("|                                             |")
 		print ("|                                             |")
-		print ("|                  Ver. GICP                  |")
+		print ("|                   Ver.EKF                   |")
 		print ("|            by Cuberick.YuukiAsuna           |")
 		print ("===============================================")
 		print
@@ -116,80 +115,19 @@ def process():
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 
-# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-# Read OXTS data
-		# OXTS_GPS_raw = np.empty([1,3],dtype=float)
-		# gcount = 1
-		# sys.stdout.write("\r>>>Read OXTS GPS raw data")
-		# sys.stdout.flush()
-		# # print
-
-		# for topic, msg, t in bag.read_messages("/kitti/oxts/gps/fix"):
-		# 	# if gcount < 1:
-		# 	# 	break
-		# 	# gcount -= 1
-
-		# 	current_GPS_data = [msg.latitude, msg.longitude, msg.altitude]
-		# 	OXTS_GPS_raw = np.vstack([OXTS_GPS_raw , current_GPS_data])
-
-		# OXTS_GPS_raw = np.delete(OXTS_GPS_raw, (0), axis=0)	
-		# sys.stdout.write("\r   OSTX GPS raw data obtained")
-		# # print
-		# # print(OXTS_GPS_raw)
-
-		# sys.stdout.write("\r>>>Read OXTS IMU data")
-		# sys.stdout.flush()
-		# # print
-
-		# OXTS_IMU_raw = np.empty([1,3],dtype=float)
-		# icount = 3
-
-		# for topic, msg, t in bag.read_messages("/kitti/oxts/imu"):
-		# 	# if icount < 1:
-		# 	# 	break
-		# 	# icount -= 1
-
-		# 	# print msg
-
-		# 	IMU_raw = msg.orientation
-		# 	quaternion_IMU = (
-		# 		IMU_raw.x,
-		# 		IMU_raw.y,
-		# 		IMU_raw.z,
-		# 		IMU_raw.w)
-
-		# 	IMU_data = tf.transformations.euler_from_quaternion(quaternion_IMU)
-		# 	IMU_roll = IMU_data[0]
-		# 	IMU_pitch = IMU_data[1]
-		# 	IMU_heading = IMU_data[2]
-		# 	OXTS_IMU_raw = np.vstack([OXTS_IMU_raw , [IMU_roll, IMU_pitch, IMU_heading]])
-
-		# 	# print IMU_data
-		# OXTS_IMU_raw = np.delete(OXTS_IMU_raw, (0), axis=0)
-		# # print OXTS_IMU_raw
-		# sys.stdout.write("\r   OXTS_IMU data obtained")
-		# sys.stdout.flush()
-		# print
-
-# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-
-
-
-
-
 # ---->>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-# obtain gicp results
+# Obtain gicp results
 		sys.stdout.write("\r>>>Read GICP raw data")
 		sys.stdout.flush()
 		gicp_raw = np.loadtxt(gicp_output_dir)
 		gicp_row_length = np.shape(gicp_raw)[0]
-		pose = [None] * number_of_frame
-		pose[0] = np.matrix([[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]])
+		pose_icp = [None] * number_of_frame
+		pose_icp[0] = np.matrix([[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]])
 
 		i = 0
 		current_starting_row = 0
 		current_ending_row = 0
-		accumulate_tf = pose[0]
+		accumulate_tf = pose_icp[0]
 
 		for i in range(number_of_frame - 1):
 			
@@ -202,108 +140,180 @@ def process():
 			current_pose = np.zeros(shape = (4,4))
 			current = np.matrix([current_pose_row_0,current_pose_row_1,current_pose_row_2,current_pose_row_3])
 			accumulate_tf = current.dot(accumulate_tf)
-			# print current
-			# current_pose[0,:] = current_pose_row_0
-			# current_pose[1,:] = current_pose_row_1
-			# current_pose[2,:] = current_pose_row_2
-			# current_pose[3,:] = current_pose_row_3
-			# current_pose = 
-			pose[i+1] = accumulate_tf
+
+			pose_icp[i+1] = accumulate_tf
 			# print current_starting_row
 		# print i
-		sys.stdout.write("\r   GICP data obtained")
-		sys.stdout.flush()
-# get pose (loadOxtsliteData and convertOxtsToPose)
 
-		# print pose
+        # ---->>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+# include Tr matrix
+
+		pose_icp_T = [None] * number_of_frame
+
+		for i in range(number_of_frame-1):
+			transfer_pose = np.empty((4,4,))
+
+			# print (T_imu_to_velo_homo)
+			# print
+			# print(pose[i])
+			transfer_pose = np.dot(T_imu_to_velo_homo, pose_icp[i])
+
+			pose_icp_T[i] = np.empty((4,4,))
+			pose_icp_T[i] = transfer_pose
+
+		sys.stdout.write("\r   Pose_GICP data obtained")
+		sys.stdout.flush()
+
+
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+# Read OXTS data
+		OXTS_GPS_raw = np.empty([1,3],dtype=float)
+		gcount = 1
+		sys.stdout.write("\r>>>Read OXTS GPS raw data")
+		sys.stdout.flush()
+		# print
+
+		for topic, msg, t in bag.read_messages("/kitti/oxts/gps/fix"):
+			# if gcount < 1:
+			# 	break
+			# gcount -= 1
+
+			current_GPS_data = [msg.latitude, msg.longitude, msg.altitude]
+			OXTS_GPS_raw = np.vstack([OXTS_GPS_raw , current_GPS_data])
+
+		OXTS_GPS_raw = np.delete(OXTS_GPS_raw, (0), axis=0)	
+		sys.stdout.write("\r   OSTX GPS raw data obtained")
+		# print
+		# print(OXTS_GPS_raw)
+
+		sys.stdout.write("\r>>>Read OXTS IMU data")
+		sys.stdout.flush()
+		# print
+
+		OXTS_IMU_raw = np.empty([1,3],dtype=float)
+		icount = 3
+
+		for topic, msg, t in bag.read_messages("/kitti/oxts/imu"):
+			# if icount < 1:
+			# 	break
+			# icount -= 1
+
+			# print msg
+
+			IMU_raw = msg.orientation
+			quaternion_IMU = (
+				IMU_raw.x,
+				IMU_raw.y,
+				IMU_raw.z,
+				IMU_raw.w)
+
+			IMU_data = tf.transformations.euler_from_quaternion(quaternion_IMU)
+			IMU_roll = IMU_data[0]
+			IMU_pitch = IMU_data[1]
+			IMU_heading = IMU_data[2]
+			OXTS_IMU_raw = np.vstack([OXTS_IMU_raw , [IMU_roll, IMU_pitch, IMU_heading]])
+
+			# print IMU_data
+		OXTS_IMU_raw = np.delete(OXTS_IMU_raw, (0), axis=0)
+		# print OXTS_IMU_raw
+		sys.stdout.write("\r   OXTS_IMU data obtained")
+		sys.stdout.flush()
+		# print
+
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+
+
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+# Calculate pose (loadOxtsliteData and convertOxtsToPose)
 
 # compute scale from first lat value
-		# oxts_first = OXTS_GPS_raw[0][0]
-		# scale = math.cos (oxts_first * math.pi / 180.00)
-		# # print scale
+		oxts_first = OXTS_GPS_raw[0][0]
+		scale = math.cos (oxts_first * math.pi / 180.00)
+		# print scale
 
 # OXTS_GPS_raw [1] [2] [3] and OXTS_IMU_raw [1] [2] [3]
-		# oxts = np.concatenate ((OXTS_GPS_raw, OXTS_IMU_raw), axis = 1)
-		# # print oxts
-		# lengh_of_oxts = np.shape(oxts)[0]
-		# # print lengh_of_oxts
+		oxts = np.concatenate ((OXTS_GPS_raw, OXTS_IMU_raw), axis = 1)
+		# print oxts
+		lengh_of_oxts = np.shape(oxts)[0]
+		# print lengh_of_oxts
 
-		# pose = [None] * lengh_of_oxts
-		# Tr_0_inv = np.zeros(shape = (4,4))
-		# isempty = np.zeros(shape = (4,4))
-		# # a = oxts[0]
-		# # print(a)
+		pose_gps = [None] * lengh_of_oxts
+		Tr_0_inv = np.zeros(shape = (4,4))
+		isempty = np.zeros(shape = (4,4))
+		# a = oxts[0]
+		# print(a)
 
-		# i = 0
-		# for i in range(lengh_of_oxts-1):
-		# 	if oxts[i] == []:
-		# 		pose[i] = np.empty((3,3,)) * np.nan
-		# 		continue
+		i = 0
+		for i in range(lengh_of_oxts-1):
+			if oxts[i] == []:
+				pose_gps[i] = np.empty((3,3,)) * np.nan
+				continue
 
-		# 	t = np.empty((3,1,))
-		# 	current_oxts_1 = oxts[i][0]
-		# 	current_oxts_2 = oxts[i][1]
+			t = np.empty((3,1,))
+			current_oxts_1 = oxts[i][0]
+			current_oxts_2 = oxts[i][1]
 
-		# 	er = 6378137
-		# 	current_t_11 = scale * current_oxts_2 * math.pi * er / 180
-		# 	current_t_12 = scale * er * math.log(math.tan( (90+ current_oxts_1) * math.pi / 360 ))
-		# 	current_t_13 = oxts[i][2]
-		# 	t = [[0],[0],[0]]
-		# 	# t = [[current_t_11], [current_t_12], [current_t_13]]
+			er = 6378137
+			current_t_11 = scale * current_oxts_2 * math.pi * er / 180
+			current_t_12 = scale * er * math.log(math.tan( (90+ current_oxts_1) * math.pi / 360 ))
+			current_t_13 = oxts[i][2]
+			t = [[0],[0],[0]]
+			# t = [[current_t_11], [current_t_12], [current_t_13]]
 
-		# 	# print t
-		# 	# print
-		# 	# print i
-		# 	# print(oxts[i])
-		# 	rx = oxts[i][3]
-		# 	ry = oxts[i][4]
-		# 	rz = oxts[i][5]
+			# print t
+			# print
+			# print i
+			# print(oxts[i])
+			rx = oxts[i][3]
+			ry = oxts[i][4]
+			rz = oxts[i][5]
 
-		# 	# print (rx)
-		# 	# print (ry)
-		# 	# print (rz)
+			# print (rx)
+			# print (ry)
+			# print (rz)
 
-		# 	Rx = np.matrix([[1, 0, 0], [0, math.cos(rx), -math.sin(rx)], [0, math.sin(rx), math.cos(rx)]])
-		# 	Ry = np.matrix([[math.cos(ry), 0, math.sin(ry)], [0, 1, 0], [-math.sin(ry), 0, math.cos(ry)]])
-		# 	Rz = np.matrix([[math.cos(rz), -math.sin(rz), 0], [math.sin(rz), math.cos(rz), 0], [0, 0, 1]])
-		# 	R = np.empty((3,3,))
-		# 	R = np.dot(np.dot(Rz,Ry),Rx)
+			Rx = np.matrix([[1, 0, 0], [0, math.cos(rx), -math.sin(rx)], [0, math.sin(rx), math.cos(rx)]])
+			Ry = np.matrix([[math.cos(ry), 0, math.sin(ry)], [0, 1, 0], [-math.sin(ry), 0, math.cos(ry)]])
+			Rz = np.matrix([[math.cos(rz), -math.sin(rz), 0], [math.sin(rz), math.cos(rz), 0], [0, 0, 1]])
+			R = np.empty((3,3,))
+			R = np.dot(np.dot(Rz,Ry),Rx)
 
-		# 	# print (Rx)
-		# 	# print (Ry)
-		# 	# print (Rz)
+			# print (Rx)
+			# print (Ry)
+			# print (Rz)
 
-		# 	# print R
-		# 	# print
+			# print R
+			# print
 
-		# 	current_matrix = np.zeros(shape = (4,4))
-		# 	first_three_row = np.concatenate ((R,t), axis =1)
-		# 	current_matrix = np.vstack([first_three_row, [0,0,0,1]])
-		# 	# print first_three_row
+			current_matrix = np.zeros(shape = (4,4))
+			first_three_row = np.concatenate ((R,t), axis =1)
+			current_matrix = np.vstack([first_three_row, [0,0,0,1]])
+			# print first_three_row
 		
-		# 	if np.array_equal(Tr_0_inv,isempty):
-		# 		# print "enter if statement"
-		# 		# print i
+			if np.array_equal(Tr_0_inv,isempty):
+				# print "enter if statement"
+				# print i
 
-		# 		Tr_0_inv = inv(current_matrix)
+				Tr_0_inv = inv(current_matrix)
 
-		# 	# if i == 0:
-		# 	# 	print Tr_0_inv
-		# 	# 	print four_rows
-		# 	current_pose = np.empty((4,4,))
-		# 	current_pose = Tr_0_inv.dot(current_matrix)
-		# 	pose[i] = current_pose
+			# if i == 0:
+			# 	print Tr_0_inv
+			# 	print four_rows
+			current_pose = np.empty((4,4,))
+			current_pose = Tr_0_inv.dot(current_matrix)
+			pose_gps[i] = current_pose
 
 
-		# 	# print i
-		# 	# print oxts[i]
-		# 	# print pose[i]
+			# print i
+			# print oxts[i]
+			# print pose[i]
 
-		# 	# raw_input("press ehnter to continue")
+			# raw_input("press ehnter to continue")
 # ---->>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # include Tr matrix
 
-		pose_T = [None] * lengh_of_oxts
+		pose_gps_T = [None] * lengh_of_oxts
 
 		for i in range(lengh_of_oxts-1):
 			transfer_pose = np.empty((4,4,))
@@ -311,14 +321,15 @@ def process():
 			# print (T_imu_to_velo_homo)
 			# print
 			# print(pose[i])
-			transfer_pose = np.dot(T_imu_to_velo_homo, pose[i])
+			transfer_pose = np.dot(T_imu_to_velo_homo, pose_gps[i])
 
-			pose_T[i] = np.empty((4,4,))
-			pose_T[i] = transfer_pose
+			pose_gps_T[i] = np.empty((4,4,))
+			pose_gps_T[i] = transfer_pose
 
 
 		
-
+		sys.stdout.write("\r   Pose_GPS data obtained")
+		sys.stdout.flush()
 		
 
 		frame = 0
@@ -330,7 +341,80 @@ def process():
 		rejected_count = 0
 		# for frame in range(0,interval,len(pose_T)):
 
-		
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+# Data summary:
+    # pose_icp_T - gicp pose data with Tr transform
+    # pose_gps_T - gps pose data with Tr transform
+    # pose_T the original variable used, now it is modified
+    # pose_T should be the ekf pose result
+# Compare data size
+		if len(pose_icp_T) < len(pose_gps_T):
+			frameNo = len(pose_icp_T)
+		else:
+			frameNo = len(pose_gps_T)
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+# EKF implementation
+		z = [None] * frameNo
+
+		j = 0
+		for j in range(frameNo-1):
+			current_pose = pose_gps_T[j]
+			z[j] = np.matrix([ [current_pose[0,3]],[current_pose[1,3]],[current_pose[2,3]],
+				[current_pose[0,0]],[current_pose[0,1]],[current_pose[0,2]],
+				[current_pose[1,0]],[current_pose[1,1]],[current_pose[1,2]],
+				[current_pose[2,0]],[current_pose[2,1]],[current_pose[2,2]] ])
+		# print z
+		x = [None] * frameNo
+		j = 0
+		for j in range(frameNo-1):
+			current_pose = pose_icp_T[j]
+			x[j] = np.matrix([ [current_pose[0,3]],[current_pose[1,3]],[current_pose[2,3]],
+				[current_pose[0,0]],[current_pose[0,1]],[current_pose[0,2]],
+				[current_pose[1,0]],[current_pose[1,1]],[current_pose[1,2]],
+				[current_pose[2,0]],[current_pose[2,1]],[current_pose[2,2]] ])
+
+		P = [None] * frameNo
+		G = [None] * frameNo
+		H = np.eye(12)
+		H = np.asmatrix(H)
+		Q = np.diag([3**2, 3**2, 10**2, 0.7**2, 0.7**2, 0.7**2, 0.7**2, 0.7**2, 0.7**2, 0.7**2, 0.7**2, 0.7**2])
+		Q = np.asmatrix(Q)
+		R = np.diag([1, 1, 1, 0.2**2, 0.2**2, 0.2**2, 0.2**2, 0.2**2, 0.2**2, 0.2**2, 0.2**2, 0.2**2])
+		# print Q
+		R = np.asmatrix(R)
+
+		P[0] = np.eye(12)
+		P[0] = np.asmatrix(P[0])
+
+		I = np.eye(12)
+		I = np.asmatrix(I)
+
+		k = 0
+		for k in range(frameNo-1):
+    			# in MATLAB, inverse is ^(-1), transpose is .'
+				# matrix multiplication is easily implemented as *
+				# as long as the variables are of type np.matrix
+			temp_transpose = H * P[k] * H.T + R
+			temp_transpose = inv(temp_transpose)
+			G[k] = P[0] * H.T * temp_transpose
+			print G[k]
+			x[k] = x[k] + G[k] * (z[k] - H * x[0])
+			P[k] = (I - G[k] * H) * P[k]
+			P[k+1] = P[k] + Q
+
+		# print P
+		pose_ekf = [None] * frameNo
+		j = 0
+		for j in range(frameNo-1):
+			temp_kf = x[j]
+			pose_ekf[j] = np.matrix([ [temp_kf[3,0],temp_kf[4,0],temp_kf[5,0],temp_kf[0,0]],
+				[temp_kf[6,0],temp_kf[7,0],temp_kf[8,0],temp_kf[1,0]],
+				[temp_kf[9,0],temp_kf[10,0],temp_kf[11,0],temp_kf[2,0]],
+				[0,0,0,1] ])
+
+		# print pose_ekf
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # Read velodyne info
 		sys.stdout.write("\r>>>Read Velodyne point data")
@@ -359,9 +443,9 @@ def process():
 			# print("counting cycles")
 			
 			# print vcount
-
+			# print len(pose_ekf)
 			frame_count += 1
-			total_frames = len(pose_T) / interval
+			total_frames = len(pose_ekf) / interval
 			total_frames = math.ceil(total_frames)
 			frames_left = total_frames - frame_count + 1
 
@@ -408,8 +492,8 @@ def process():
 					if (point_count + 1 ) % density != 0:
 						continue
 
-					pose_a = pose_T[bag_count]
-
+					pose_a = pose_ekf[bag_count]
+					# print pose_a
 
 					point = velo[j]
 					a = type(point)
@@ -424,10 +508,12 @@ def process():
 
 					transformed_points[j] = point_c
 					# raw_input("press ehnter to continue")
+
 					# if (point_c[0,2] > -6) and (point_c[0,2] < 6):
 					# 	transformed_points[j] = point_c
 					# else:
 					# 	rejected_count += 1
+					
 						# print " O_o   point rejected due to range limit"
 				except:
 					# print "except!!!"
@@ -512,7 +598,7 @@ def process():
 		# print b
 
 
-		pcl_pub = rospy.Publisher("/gicp_visu", PointCloud2, queue_size = 10)
+		pcl_pub = rospy.Publisher("/ekf_visu", PointCloud2, queue_size = 10)
 		rospy.loginfo("Publisher started at: /velodyne_pub")
 		rospy.sleep(1.)
 		rospy.loginfo("Publishing...")

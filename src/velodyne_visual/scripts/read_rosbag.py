@@ -37,9 +37,9 @@ def process():
 		print ("===============================================")
 		print ("|             ---PROGRAM START---             |")
 		print ("|                                             |")
-		print ("|         Welcome to SWORD ART ONLINE         |")
-		print ("|             Powered by The SEED             |")
 		print ("|                                             |")
+		print ("|                                             |")
+		print ("|                   Ver.INS                   |")
 		print ("|            by Cuberick.YuukiAsuna           |")
 		print ("===============================================")
 		print
@@ -485,7 +485,7 @@ def process():
 		# print b
 
 
-		pcl_pub = rospy.Publisher("/velodyne_pub", PointCloud2, queue_size = 10)
+		pcl_pub = rospy.Publisher("/gps_visu", PointCloud2, queue_size = 10)
 		rospy.loginfo("Publisher started at: /velodyne_pub")
 		rospy.sleep(1.)
 		rospy.loginfo("Publishing...")
