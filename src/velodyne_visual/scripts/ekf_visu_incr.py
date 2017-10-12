@@ -9,23 +9,24 @@ from sensor_msgs.msg import PointCloud2, PointField
 import numpy as np
 # require the installation of ros-kinetic-tf2_sensor_msgs
 from tf2_sensor_msgs.tf2_sensor_msgs import do_transform_cloud
+# require the installation of transforms3d
+import transforms3d
+# require the installation of sympy
+import sympy as sp
+# from sympy import *
 import subprocess
 import tf
 import math
 from numpy.linalg import inv
 import sys
 import os
-# require the installation of transforms3d
-import transforms3d
-# require the installation of sympy
-import sympy as sp
-from sympy import *
+
 
 def process():
 	# pub = rospy.Publisher('velodyne_point_data', String, queue_size=10)
 	# while not rospy.is_shutdown():
 		rospy.init_node('test_velodyne',anonymous=True)
-
+		
 # bag_name should be the same for both rosbag and gicp_simplified_result
 		bag_name = "kitti_2011_09_26_drive_0005_synced"
 
@@ -47,8 +48,7 @@ def process():
 		print ("|                                             |")
 		print ("|                                             |")
 		print ("|                                             |")
-		print ("|                   Ver.EKF                   |")
-		print ("|            by Cuberick.YuukiAsuna           |")
+		print ("|             Ver.EKF_incremental             |")
 		print ("===============================================")
 		print
 		print
@@ -61,6 +61,7 @@ def process():
 		print
 		print ("Bag LOADED")
 		print ("Please launch rviz")
+		print
 		print
 
 
@@ -177,7 +178,7 @@ def process():
 		sys.stdout.write("\r   Pose_GICP data obtained")
 		sys.stdout.flush()
 
-
+		# rospy.sleep(0.5) # Sleeps for 1 sec
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # Read OXTS data
 		OXTS_GPS_raw = np.empty([1,3],dtype=float)
@@ -185,6 +186,7 @@ def process():
 		sys.stdout.write("\r>>>Read OXTS GPS raw data")
 		sys.stdout.flush()
 		# print
+		# rospy.sleep(0.5) # Sleeps for 1 sec
 
 		for topic, msg, t in bag.read_messages("/kitti/oxts/gps/fix"):
 			# if gcount < 1:
@@ -195,7 +197,7 @@ def process():
 			OXTS_GPS_raw = np.vstack([OXTS_GPS_raw , current_GPS_data])
 
 		OXTS_GPS_raw = np.delete(OXTS_GPS_raw, (0), axis=0)	
-		sys.stdout.write("\import sympy as spr   OSTX GPS raw data obtained")
+		sys.stdout.write("\r   OSTX GPS raw data obtained")
 		# print
 		# print(OXTS_GPS_raw)
 
@@ -238,14 +240,14 @@ def process():
 
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-# Calculate pose (loadOxtsliteData and convertOxtsToPose)
+	# Calculate pose (loadOxtsliteData and convertOxtsToPose)
 
-# compute scale from first lat value
+	# compute scale from first lat value
 		oxts_first = OXTS_GPS_raw[0][0]
 		scale = math.cos (oxts_first * math.pi / 180.00)
 		# print scale
 
-# OXTS_GPS_raw [1] [2] [3] and OXTS_IMU_raw [1] [2] [3]
+	# OXTS_GPS_raw [1] [2] [3] and OXTS_IMU_raw [1] [2] [3]
 		oxts = np.concatenate ((OXTS_GPS_raw, OXTS_IMU_raw), axis = 1)
 		# print oxts
 		lengh_of_oxts = np.shape(oxts)[0]
@@ -271,8 +273,7 @@ def process():
 			current_t_11 = scale * current_oxts_2 * math.pi * er / 180
 			current_t_12 = scale * er * math.log(math.tan( (90+ current_oxts_1) * math.pi / 360 ))
 			current_t_13 = oxts[i][2]
-			t = [[0],[0],[0]]
-			# t = [[current_t_11], [current_t_12], [current_t_13]]
+			t = [[current_t_11], [current_t_12], [current_t_13]]
 
 			# print t
 			# print
@@ -372,42 +373,29 @@ def process():
 		z = [None] * frameNo
 		j  =  0
 		for j in range(frameNo - 1):
+			# print; print current_pose
 			current_pose = pose_gps_T[j]
 			current_rotation_matrix = current_pose[0:3,0:3]
 			current_rotation_euler = transforms3d.euler.mat2euler(current_rotation_matrix)
 			# z[j] = np.asmatrix(current_rotation_euler)
 			z[j] = np.matrix([  [current_pose[0,3]],[current_pose[1,3]],[current_pose[2,3]]  ])
+			# print current_pose
+
 # obtain x_k from icp incr
 		x = [None] * frameNo
 		j = 0
 		for j in range(frameNo-1):
-			current_pose = pose_icp_incr_T[j]
+			current_pose = pose_icp_incr[j]
 			current_rotation_matrix = current_pose[0:3,0:3]
 			current_rotation_euler = transforms3d.euler.mat2euler(current_rotation_matrix)
 			current_rotation_euler_m = np.asmatrix(current_rotation_euler)
 			x[j] = np.matrix([  [current_pose[0,3]],[current_pose[1,3]],[current_pose[2,3]],
-								[current_rotation_euler_m[0,0]],[current_rotation_euler_m[0,1]],[current_rotation_euler_m[0,2]]  ])
+								[current_rotation_euler_m[0,2]],[current_rotation_euler_m[0,1]],[current_rotation_euler_m[0,0]]  ])
 
+		sys.stdout.write("\r>>>start EKF")
+		sys.stdout.flush()
 # EKF implementation
-		
-
-		# j = 0
-		# for j in range(frameNo-1):
-		# 	current_pose = pose_gps_T[j]
-		# 	z[j] = np.matrix([ [current_pose[0,3]],[current_pose[1,3]],[current_pose[2,3]],
-		# 		[current_pose[0,0]],[current_pose[0,1]],[current_pose[0,2]],
-		# 		[current_pose[1,0]],[current_pose[1,1]],[current_pose[1,2]],
-		# 		[current_pose[2,0]],[current_pose[2,1]],[current_pose[2,2]] ])
-		# print z
-		# x = [None] * frameNo
-		# j = 0
-		# for j in range(frameNo-1):
-		# 	current_pose = pose_icp_T[j]
-		# 	x[j] = np.matrix([ [current_pose[0,3]],[current_pose[1,3]],[current_pose[2,3]],
-		# 		[current_pose[0,0]],[current_pose[0,1]],[current_pose[0,2]],
-		# 		[current_pose[1,0]],[current_pose[1,1]],[current_pose[1,2]],
-		# 		[current_pose[2,0]],[current_pose[2,1]],[current_pose[2,2]] ])
-
+	
 		P = [None] * frameNo
 		G = [None] * frameNo
 		F = [None] * frameNo
@@ -433,7 +421,7 @@ def process():
 		R_matrix = Rz*Ry*Rx
 
 		A = sp.Matrix([[delta_x], [delta_y], [delta_z]])
-		F_top_right_de_ja = (R_matrix * A)
+		F_top_right_de_ja = (R_matrix * A).T
 		F_top_right = F_top_right_de_ja.jacobian([rz,ry,rx])
 
 		F_template = sp.Matrix([[1,0,0,F_top_right[0,0],F_top_right[0,1],F_top_right[0,2]],
@@ -461,29 +449,26 @@ def process():
 			# print
 			# print k
 			# print X[k-1]
+
+			# print; print x[k-1]
 			x_down_three = X[k-1][3:6,0] + x[k][3:6,0]
-			x_up_three = pose_icp_T[k][0:3,3]
+			x_up_three = pose_icp[k][0:3,3]
 			# print;print x_up_three
 			X[k] = np.concatenate((x_up_three,x_down_three), axis=0)
 			X[k] = np.asmatrix(X[k])
-
+			# print X[k]
 			P[k] = F[k-1] * P[k-1] * F[k-1].T + Q
-
+			# print P[k]
 			# print; print temp_transpose
 			S[k] = H * P[k] * H.T + R
 			G[k] = P[k] * H.T * (S[k])**(-1)
 
-			# print G[k]
-			# print
-			# print z[k]
-			# print X[k]
 			V[k] = z[k] - H * X[k]
 			X[k] = X[k] + G[k]*V[k]
-
-			# x[k] = x[k] + G[k] * (z[k] - H * x[0])
+			# print X[k]
 			P[k] = (I - G[k] * H) * P[k]
 			# P[k+1] = P[k] + Q
-
+			# print;print P[k]
 			delta_x_u = x[k][0,0]
 			delta_y_u = x[k][1,0]
 			delta_z_u = x[k][2,0]
@@ -492,17 +477,21 @@ def process():
 			rx_u = X[k][5,0]
 
 			F[k] = F_template.subs({rx:rx_u, ry:ry_u, rz:rz_u, delta_x:delta_x_u, delta_y:delta_y_u, delta_z:delta_z_u})
-
+			# print F[k]
 		# print P
+
+		sys.stdout.write("\r   EKF processed")
+		sys.stdout.flush()
 
 # calculate pose for ekf
 		pose_ekf = [None] * frameNo
 		j = 0
 		for j in range(frameNo-1):
-			temp_r = transforms3d.euler.euler2mat(X[j][3,0],X[j][4,0],X[j][5,0])
+			temp_r = transforms3d.euler.euler2mat(X[j][5,0],X[j][4,0],X[j][3,0])
 			pose_ekf[j] = np.asmatrix( np.concatenate( (temp_r,X[j][0:3,0]), axis=1)  )
 			a = np.matrix([[0,0,0,1]])
 			pose_ekf[j] = np.concatenate( (pose_ekf[j],a), axis=0)
+			# print; print pose_ekf[j]
 			# pose_ekf[j] = np.matrix([ [temp_kf[3,0],temp_kf[4,0],temp_kf[5,0],temp_kf[0,0]],
 			# 	[temp_kf[6,0],temp_kf[7,0],temp_kf[8,0],temp_kf[1,0]],
 			# 	[temp_kf[9,0],temp_kf[10,0],temp_kf[11,0],temp_kf[2,0]],
@@ -515,22 +504,31 @@ def process():
 # Read velodyne info
 		sys.stdout.write("\r>>>Read Velodyne point data")
 		sys.stdout.flush()
-		# print
+		print;print
 
-		all_points = np.empty([1,3],dtype=float)
+		# all_points = np.empty([1,3],dtype=float)
 		current_point_set = np.empty((999999,3,)) * np.NaN
 		vcount = 5
 
 		bag_count = -1
+		total_msg_no = 0
 		for topic, msg, t in bag.read_messages("/kitti/velo/pointcloud"):
+			# bag_count += 1
+			# if (bag_count) % interval != 0:
+			# 	continue
+			total_msg_no += 1
 
+		all_points = [np.empty([1,4],dtype=float)] * total_msg_no
+
+		for topic, msg, t in bag.read_messages("/kitti/velo/pointcloud"):
+    
 			# transformed_points = np.empty((1,3,))
 			transformed_points = np.empty((999999,3,)) * np.NaN
 
 
 			bag_count += 1
-			if (bag_count) % interval != 0:
-				continue
+			# if (bag_count) % interval != 0:
+			# 	continue
 
 			# if vcount < 1:
 			# 	break
@@ -539,7 +537,7 @@ def process():
 			# print("counting cycles")
 			
 			# print vcount
-			# print len(pose_ekf)
+
 			frame_count += 1
 			total_frames = len(pose_ekf) / interval
 			total_frames = math.ceil(total_frames)
@@ -587,57 +585,50 @@ def process():
 					point_count += 1
 					if (point_count + 1 ) % density != 0:
 						continue
-
+					# print;print pose_ekf
 					pose_a = pose_ekf[bag_count]
-					# print pose_a
 
 					point = velo[j]
-					a = type(point)
-					point_a = point[np.newaxis, :].T
-					point_b = np.vstack([point_a, [1]])
 
+					point_a = point[np.newaxis, :].T
+					# print point_a
+					point_b = np.vstack([point_a, [1]])
+					
 					point_c = np.dot(pose_a, point_b)
 					point_c = point_c[np.newaxis, :].T
 
-
 					point_c = np.delete(point_c, [3], axis=1)
-
+					# print; print point_c
 					transformed_points[j] = point_c
-					# raw_input("press ehnter to continue")
 
-					# if (point_c[0,2] > -6) and (point_c[0,2] < 6):
-					# 	transformed_points[j] = point_c
-					# else:
-					# 	rejected_count += 1
-					
-						# print " O_o   point rejected due to range limit"
 				except:
-					# print "except!!!"
+					# print;print "except"
 					continue
-			# print "Cumulated rejected and skipped points:"
-			# print (rejected_count + skipped_count)
-			# print
-
-			# transformed_points = np.delete(transformed_points, [3], axis=1)
+			
 			transformed_points = transformed_points[~np.isnan(transformed_points).any(axis=1)]
-			all_points = np.vstack([all_points, transformed_points])
-			all_points = np.delete(all_points, (0), axis=0)
+			# print; print transformed_points
+			try:
+				transformed_points = np.delete(transformed_points, (0), axis=0)
+			except:
+				continue
+
+			all_points[frame_count-1] = transformed_points
+			all_points[frame_count-1] = np.delete(all_points[frame_count-1], (0), axis=0)
+			# all_points = np.vstack([all_points, transformed_points])
+			# all_points = np.delete(all_points, (0), axis=0)
 
 			# print(all_points)
 			# a = all_points.shape
 			# print(a)
-
+			# print frame_count
 
 
 
 
 		sys.stdout.write("\rVelodyne point data processing finished")
 		sys.stdout.flush()
-		# print
 
-		all_points = np.delete(all_points, (0), axis=0)
-		# print all_points
-		
+		# bag.close()
 
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -646,34 +637,21 @@ def process():
 
 
 
-# init pose
 		# pose = 
 		# subprocess.call(['spd-say','start publishing'])
-
-		
-		header = std_msgs.msg.Header()
-		header.stamp = rospy.Time.now()
-		header.frame_id = 'map'
-
-		fields = [PointField('x', 0, PointField.FLOAT32, 1),
-                  PointField('y', 4, PointField.FLOAT32, 1),
-                  PointField('z', 8, PointField.FLOAT32, 1),
-                  PointField('i', 12, PointField.FLOAT32, 1)]
-
-
 
 		# print all_points
 		# print
 		# print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
 		# prsint(">>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
 		sys.stdout.write("\rProcessing completed, generating system report")
-		print
+		# print
 		# sys.stdout.flush()
 		# print
 		# a = type(all_points)
 		b = np.shape(all_points)
-		# print a 
-		sys.stdout.write("	Total points:")
+		# print;print a 
+		sys.stdout.write("	Total frames:")
 		print b[0]
 		sys.stdout.write("	Skipped points:")
 		print skipped_count
@@ -681,29 +659,73 @@ def process():
 		print rejected_count
 		print
 		# print
-		print ("Start visualising...")
-
-		all_points = all_points.tolist()
-
-		# print all_points
-
-		processed_data = pc2.create_cloud_xyz32(header, all_points)
-		# [[1, 1, 1]]
-		# a = [[1, 1, 1]]
-		# b = type(a)
-		# print b
-
+		# print ("Start visualising...")
 
 		pcl_pub = rospy.Publisher("/ekf_visu", PointCloud2, queue_size = 10)
-		rospy.loginfo("Publisher started at: /velodyne_pub")
+		rospy.loginfo("Publisher started at: /ekf_visu")
 		rospy.sleep(1.)
 		rospy.loginfo("Publishing...")
-		pcl_pub.publish(processed_data)
+		print
+		print
+		print
+
+		bag.close()
+
+		current_visual_set = np.empty([1,3])
+
+		while (1):
+			raw_input("\r... waiting for instruction")
+			# sys.stdout.write("Start visualising...")
+			sys.stdout.flush()
+
+			current_visual_set = np.empty([1,3])
+
+			k = 0
+			for k in range(total_msg_no):
+
+				sys.stdout.write("\rVisualising frame %d" %k)
+				sys.stdout.flush()
+
+				header = std_msgs.msg.Header()
+				header.stamp = rospy.Time.now()
+				header.frame_id = 'map'
+
+				fields = [PointField('x', 0, PointField.FLOAT32, 1),
+		                  PointField('y', 4, PointField.FLOAT32, 1),
+		                  PointField('z', 8, PointField.FLOAT32, 1),
+		                  PointField('i', 12, PointField.FLOAT32, 1)]
+				try:
+					current_visual_set = np.concatenate((current_visual_set, all_points[k]))
+					# a = type(current_visual_set)
+					# print;print a 
+				except:
+					continue
+				current_visual_set_list = current_visual_set.tolist()
+
+				# print all_points
+
+				processed_data = pc2.create_cloud_xyz32(header, current_visual_set_list)
+				rospy.sleep(duration)
+				# [[1, 1, 1]]
+				# a = [[1, 1, 1]]
+				# b = type(a)
+				# print b
+
+
+				
+				pcl_pub.publish(processed_data)
+
+			sys.stdout.write("\rVisualisation complete")
+			sys.stdout.flush()
+			# print
+			# print
 
 
 		
-		bag.close()
+		
 
+# def publish_odom(self,rtom_list):
+	
 
 if __name__ == '__main__':
 	os.system('cls' if os.name == 'nt' else 'clear')

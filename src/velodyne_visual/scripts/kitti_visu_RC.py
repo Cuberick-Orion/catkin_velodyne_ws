@@ -29,7 +29,7 @@ def process():
 		bag = rosbag.Bag(bag_dir)
 
 		interval = 1
-		density = 4
+		density = 20
 		duration = rospy.Duration(0.1,0)
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -402,15 +402,15 @@ def process():
 					# print (pose_a)
 					# print (point_b)
 					# print
-					print pose_a
-					print point_b
+					# print pose_a
+					# print point_b
 
 					point_c = np.dot(pose_a, point_b)
 					point_c = point_c[np.newaxis, :].T
 					# print point_c
 
 					point_c = np.delete(point_c, [3], axis=1)
-					print point_c
+					# print point_c
 					# a = type(point_c)
 					# print a
 					# print point_c
