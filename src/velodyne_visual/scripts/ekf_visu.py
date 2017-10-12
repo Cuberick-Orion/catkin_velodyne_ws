@@ -15,7 +15,11 @@ import math
 from numpy.linalg import inv
 import sys
 import os
-
+# require the installation of transforms3d
+import transforms3d
+# require the installation of sympy
+import sympy as sp
+from sympy import *
 
 def process():
 	# pub = rospy.Publisher('velodyne_point_data', String, queue_size=10)
@@ -120,9 +124,13 @@ def process():
 		sys.stdout.write("\r>>>Read GICP raw data")
 		sys.stdout.flush()
 		gicp_raw = np.loadtxt(gicp_output_dir)
+
 		gicp_row_length = np.shape(gicp_raw)[0]
 		pose_icp = [None] * number_of_frame
 		pose_icp[0] = np.matrix([[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]])
+
+		pose_icp_incr = [None] * number_of_frame
+		pose_icp_incr[0] = np.matrix([[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]])
 
 		i = 0
 		current_starting_row = 0
@@ -142,14 +150,16 @@ def process():
 			accumulate_tf = current.dot(accumulate_tf)
 
 			pose_icp[i+1] = accumulate_tf
+			pose_icp_incr[i+1] = current
+
 			# print current_starting_row
 		# print i
 
-        # ---->>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+# ---->>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # include Tr matrix
 
 		pose_icp_T = [None] * number_of_frame
-
+		pose_icp_incr_T = [None] * number_of_frame
 		for i in range(number_of_frame-1):
 			transfer_pose = np.empty((4,4,))
 
@@ -157,9 +167,12 @@ def process():
 			# print
 			# print(pose[i])
 			transfer_pose = np.dot(T_imu_to_velo_homo, pose_icp[i])
+			transfer_pose_incr = np.dot(T_imu_to_velo_homo, pose_icp_incr[i])
 
 			pose_icp_T[i] = np.empty((4,4,))
 			pose_icp_T[i] = transfer_pose
+			pose_icp_incr_T[i] = np.empty((4,4,))
+			pose_icp_incr_T[i] = transfer_pose_incr
 
 		sys.stdout.write("\r   Pose_GICP data obtained")
 		sys.stdout.flush()
@@ -182,7 +195,7 @@ def process():
 			OXTS_GPS_raw = np.vstack([OXTS_GPS_raw , current_GPS_data])
 
 		OXTS_GPS_raw = np.delete(OXTS_GPS_raw, (0), axis=0)	
-		sys.stdout.write("\r   OSTX GPS raw data obtained")
+		sys.stdout.write("\import sympy as spr   OSTX GPS raw data obtained")
 		# print
 		# print(OXTS_GPS_raw)
 
@@ -344,6 +357,7 @@ def process():
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # Data summary:
     # pose_icp_T - gicp pose data with Tr transform
+	# pose_icp_incr_T - incremental pose data
     # pose_gps_T - gps pose data with Tr transform
     # pose_T the original variable used, now it is modified
     # pose_T should be the ekf pose result
@@ -353,64 +367,146 @@ def process():
 		else:
 			frameNo = len(pose_gps_T)
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-# EKF implementation
-		z = [None] * frameNo
 
-		j = 0
-		for j in range(frameNo-1):
+# obtain z_k from gps information
+		z = [None] * frameNo
+		j  =  0
+		for j in range(frameNo - 1):
 			current_pose = pose_gps_T[j]
-			z[j] = np.matrix([ [current_pose[0,3]],[current_pose[1,3]],[current_pose[2,3]],
-				[current_pose[0,0]],[current_pose[0,1]],[current_pose[0,2]],
-				[current_pose[1,0]],[current_pose[1,1]],[current_pose[1,2]],
-				[current_pose[2,0]],[current_pose[2,1]],[current_pose[2,2]] ])
-		# print z
+			current_rotation_matrix = current_pose[0:3,0:3]
+			current_rotation_euler = transforms3d.euler.mat2euler(current_rotation_matrix)
+			# z[j] = np.asmatrix(current_rotation_euler)
+			z[j] = np.matrix([  [current_pose[0,3]],[current_pose[1,3]],[current_pose[2,3]]  ])
+# obtain x_k from icp incr
 		x = [None] * frameNo
 		j = 0
 		for j in range(frameNo-1):
-			current_pose = pose_icp_T[j]
-			x[j] = np.matrix([ [current_pose[0,3]],[current_pose[1,3]],[current_pose[2,3]],
-				[current_pose[0,0]],[current_pose[0,1]],[current_pose[0,2]],
-				[current_pose[1,0]],[current_pose[1,1]],[current_pose[1,2]],
-				[current_pose[2,0]],[current_pose[2,1]],[current_pose[2,2]] ])
+			current_pose = pose_icp_incr_T[j]
+			current_rotation_matrix = current_pose[0:3,0:3]
+			current_rotation_euler = transforms3d.euler.mat2euler(current_rotation_matrix)
+			current_rotation_euler_m = np.asmatrix(current_rotation_euler)
+			x[j] = np.matrix([  [current_pose[0,3]],[current_pose[1,3]],[current_pose[2,3]],
+								[current_rotation_euler_m[0,0]],[current_rotation_euler_m[0,1]],[current_rotation_euler_m[0,2]]  ])
+
+# EKF implementation
+		
+
+		# j = 0
+		# for j in range(frameNo-1):
+		# 	current_pose = pose_gps_T[j]
+		# 	z[j] = np.matrix([ [current_pose[0,3]],[current_pose[1,3]],[current_pose[2,3]],
+		# 		[current_pose[0,0]],[current_pose[0,1]],[current_pose[0,2]],
+		# 		[current_pose[1,0]],[current_pose[1,1]],[current_pose[1,2]],
+		# 		[current_pose[2,0]],[current_pose[2,1]],[current_pose[2,2]] ])
+		# print z
+		# x = [None] * frameNo
+		# j = 0
+		# for j in range(frameNo-1):
+		# 	current_pose = pose_icp_T[j]
+		# 	x[j] = np.matrix([ [current_pose[0,3]],[current_pose[1,3]],[current_pose[2,3]],
+		# 		[current_pose[0,0]],[current_pose[0,1]],[current_pose[0,2]],
+		# 		[current_pose[1,0]],[current_pose[1,1]],[current_pose[1,2]],
+		# 		[current_pose[2,0]],[current_pose[2,1]],[current_pose[2,2]] ])
 
 		P = [None] * frameNo
 		G = [None] * frameNo
-		H = np.eye(12)
-		H = np.asmatrix(H)
-		Q = np.diag([3**2, 3**2, 10**2, 0.7**2, 0.7**2, 0.7**2, 0.7**2, 0.7**2, 0.7**2, 0.7**2, 0.7**2, 0.7**2])
+		F = [None] * frameNo
+		S = [None] * frameNo
+		V = [None] * frameNo
+		X = [None] * frameNo
+
+		H = np.matrix([ [1,0,0,0,0,0],[0,1,0,0,0,0],[0,0,1,0,0,0] ])
+		# H = np.asmatrix(H)
+		Q = np.diag([10**2, 10**2, 10**2, 0.7**2, 0.7**2, 0.7**2])
 		Q = np.asmatrix(Q)
-		R = np.diag([1, 1, 1, 0.2**2, 0.2**2, 0.2**2, 0.2**2, 0.2**2, 0.2**2, 0.2**2, 0.2**2, 0.2**2])
-		# print Q
+		Q = Q * 0.1
+
+		R = np.diag([1, 1, 1])
 		R = np.asmatrix(R)
 
-		P[0] = np.eye(12)
-		P[0] = np.asmatrix(P[0])
+		rx,ry,rz,delta_x,delta_y,delta_z = sp.symbols('rx,ry,rz,delta_x,delta_y,delta_z')
+		# d_R11, d_R12, d_R13, d_R21, d_R22, d_R23, d_R31, d_R32, d_R33
 
-		I = np.eye(12)
+		Rx = sp.Matrix([[1,0,0], [0,sp.cos(rx),-sp.sin(rx)], [0,sp.sin(rx),sp.cos(rx)]])
+		Ry = sp.Matrix([[sp.cos(ry),0,sp.sin(ry)], [0,1,0], [-sp.sin(ry),0,sp.cos(ry)]])
+		Rz = sp.Matrix([[sp.cos(rz),-sp.sin(rz),0], [sp.sin(rz),sp.cos(rz),0], [0,0,1]])
+		R_matrix = Rz*Ry*Rx
+
+		A = sp.Matrix([[delta_x], [delta_y], [delta_z]])
+		F_top_right_de_ja = (R_matrix * A)
+		F_top_right = F_top_right_de_ja.jacobian([rz,ry,rx])
+
+		F_template = sp.Matrix([[1,0,0,F_top_right[0,0],F_top_right[0,1],F_top_right[0,2]],
+								[0,1,0,F_top_right[1,0],F_top_right[1,1],F_top_right[1,2]],
+								[0,0,1,F_top_right[2,0],F_top_right[2,1],F_top_right[2,2]],
+								[0,0,0,0,0,0],
+								[0,0,0,0,0,0],
+								[0,0,0,0,0,0]])
+
+		F[0] = np.asmatrix(np.eye(6))
+
+		P[0] = np.asmatrix(np.eye(6))
+		# P[0] = np.asmatrix(P[0])
+
+		I = np.eye(6)
 		I = np.asmatrix(I)
+		accumulated_R = np.asmatrix(np.eye(3))
+		X[0] = x[0]
 
-		k = 0
-		for k in range(frameNo-1):
+		k = 1
+		for k in range(1,frameNo-1):
     			# in MATLAB, inverse is ^(-1), transpose is .'
 				# matrix multiplication is easily implemented as *
 				# as long as the variables are of type np.matrix
-			temp_transpose = H * P[k] * H.T + R
-			temp_transpose = inv(temp_transpose)
-			G[k] = P[0] * H.T * temp_transpose
-			print G[k]
-			x[k] = x[k] + G[k] * (z[k] - H * x[0])
+			# print
+			# print k
+			# print X[k-1]
+			x_down_three = X[k-1][3:6,0] + x[k][3:6,0]
+			x_up_three = pose_icp_T[k][0:3,3]
+			# print;print x_up_three
+			X[k] = np.concatenate((x_up_three,x_down_three), axis=0)
+			X[k] = np.asmatrix(X[k])
+
+			P[k] = F[k-1] * P[k-1] * F[k-1].T + Q
+
+			# print; print temp_transpose
+			S[k] = H * P[k] * H.T + R
+			G[k] = P[k] * H.T * (S[k])**(-1)
+
+			# print G[k]
+			# print
+			# print z[k]
+			# print X[k]
+			V[k] = z[k] - H * X[k]
+			X[k] = X[k] + G[k]*V[k]
+
+			# x[k] = x[k] + G[k] * (z[k] - H * x[0])
 			P[k] = (I - G[k] * H) * P[k]
-			P[k+1] = P[k] + Q
+			# P[k+1] = P[k] + Q
+
+			delta_x_u = x[k][0,0]
+			delta_y_u = x[k][1,0]
+			delta_z_u = x[k][2,0]
+			rz_u = X[k][3,0]
+			ry_u = X[k][4,0]
+			rx_u = X[k][5,0]
+
+			F[k] = F_template.subs({rx:rx_u, ry:ry_u, rz:rz_u, delta_x:delta_x_u, delta_y:delta_y_u, delta_z:delta_z_u})
 
 		# print P
+
+# calculate pose for ekf
 		pose_ekf = [None] * frameNo
 		j = 0
 		for j in range(frameNo-1):
-			temp_kf = x[j]
-			pose_ekf[j] = np.matrix([ [temp_kf[3,0],temp_kf[4,0],temp_kf[5,0],temp_kf[0,0]],
-				[temp_kf[6,0],temp_kf[7,0],temp_kf[8,0],temp_kf[1,0]],
-				[temp_kf[9,0],temp_kf[10,0],temp_kf[11,0],temp_kf[2,0]],
-				[0,0,0,1] ])
+			temp_r = transforms3d.euler.euler2mat(X[j][3,0],X[j][4,0],X[j][5,0])
+			pose_ekf[j] = np.asmatrix( np.concatenate( (temp_r,X[j][0:3,0]), axis=1)  )
+			a = np.matrix([[0,0,0,1]])
+			pose_ekf[j] = np.concatenate( (pose_ekf[j],a), axis=0)
+			# pose_ekf[j] = np.matrix([ [temp_kf[3,0],temp_kf[4,0],temp_kf[5,0],temp_kf[0,0]],
+			# 	[temp_kf[6,0],temp_kf[7,0],temp_kf[8,0],temp_kf[1,0]],
+			# 	[temp_kf[9,0],temp_kf[10,0],temp_kf[11,0],temp_kf[2,0]],
+			# 	[0,0,0,1] ])
 
 		# print pose_ekf
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
