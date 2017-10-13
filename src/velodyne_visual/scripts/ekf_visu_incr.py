@@ -446,9 +446,6 @@ def process():
     			# in MATLAB, inverse is ^(-1), transpose is .'
 				# matrix multiplication is easily implemented as *
 				# as long as the variables are of type np.matrix
-			# print
-			# print k
-			# print X[k-1]
 
 			# print; print x[k-1]
 			x_down_three = X[k-1][3:6,0] + x[k][3:6,0]
@@ -527,16 +524,7 @@ def process():
 
 
 			bag_count += 1
-			# if (bag_count) % interval != 0:
-			# 	continue
 
-			# if vcount < 1:
-			# 	break
-			# vcount -= 1
-
-			# print("counting cycles")
-			
-			# print vcount
 
 			frame_count += 1
 			total_frames = len(pose_ekf) / interval
@@ -546,10 +534,7 @@ def process():
 			info_of_frame = "Processing scan No.%d , %d remaining" % (frame_count,frames_left)
 			sys.stdout.write("\r%s" % info_of_frame)
 			sys.stdout.flush()
-			# sys.stdout.write("    ~~~~~~working hard     >.<      please wait!~~~~~~~")
-			# print
 
-			# print vcount
 
 			data_length = len(msg.data)
 ## msg is of type PointCloud2
